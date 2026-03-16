@@ -660,119 +660,108 @@ function App() {
       {/* ── Header ── */}
       <div style={{ borderBottom:"1px solid #181830", background:"#0b0b18" }}>
         <style>{`
-          .rf-stat { display:flex; flex-direction:column; align-items:center; }
-          .rf-divider { width:1px; height:22px; background:#181830; flex-shrink:0; }
-          .rf-logo-full { display:inline; }
-          .rf-logo-short { display:none !important; }
-          @media (max-width:430px) {
-            .rf-stat { display:none !important; }
-            .rf-divider { display:none !important; }
-            .rf-logo-full { display:none !important; }
-            .rf-logo-short { display:inline !important; }
-          }
+          .rf-header-scroll::-webkit-scrollbar { display:none; }
+          .rf-header-scroll { -ms-overflow-style:none; scrollbar-width:none; }
         `}</style>
 
-        {/* Top row */}
-        <div style={{ padding:"10px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
+        {/* Single scrollable row — swipe left on mobile to reveal SYNC + OUT */}
+        <div className="rf-header-scroll"
+          style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", overflowX:"auto", overflowY:"hidden" }}>
 
-          {/* Logo + date — compact on mobile */}
-          <div style={{ minWidth:0, flex:"0 1 auto" }}>
-            {/* Full name on wider screens, short "RF" on mobile */}
-            <div style={{ fontFamily:"'Syne',sans-serif", letterSpacing:"-0.5px", color:"#fff", whiteSpace:"nowrap" }}>
-              <span style={{ fontSize:17, fontWeight:800 }} className="rf-logo-full">ROUTINEFLOW</span>
-              <span style={{ fontSize:22, fontWeight:800, letterSpacing:"1px", display:"none" }} className="rf-logo-short">RF</span>
-            </div>
+          {/* Logo — fixed, never shrinks */}
+          <div style={{ flexShrink:0 }}>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:800, letterSpacing:"-0.5px", color:"#fff", whiteSpace:"nowrap" }}>ROUTINEFLOW</div>
             <div style={{ fontSize:9, color:"#a0a0bc", letterSpacing:"1.2px", textTransform:"uppercase", marginTop:1, whiteSpace:"nowrap" }}>
               {new Date().toLocaleDateString("en-GB",{ timeZone:timezone, weekday:"short", day:"numeric", month:"short" })}
             </div>
           </div>
 
-          {/* Right controls — flex-shrink:0 so they never get squeezed off */}
-          <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-
-            {/* Streak — hidden below 430px */}
-            <div className="rf-stat">
-              <div style={{ display:"flex", alignItems:"center", gap:3, color:"#f97316", fontWeight:500, fontSize:12 }}>
-                <Icon name="flame" size={11} /> <span>{streak}</span>
+          {/* Clock + TZ — grows to fill space */}
+          <div style={{ position:"relative", flex:1, minWidth:140 }}>
+            <button onClick={() => setTzOpen(o => !o)}
+              style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer", background:"#0f0f1e", border:"1px solid #1e1e38", borderRadius:8, padding:"6px 10px", outline:"none", color:"inherit", fontFamily:"inherit", width:"100%", whiteSpace:"nowrap" }}>
+              <Icon name="clock" size={12} />
+              <span style={{ fontSize:13, fontWeight:500, color:"#fff", letterSpacing:"1.5px", fontVariantNumeric:"tabular-nums" }}>{clock}</span>
+              <span style={{ fontSize:9, color:"#b0b0c8", marginLeft:3 }}>{tzLabel}</span>
+              <Icon name="chev" size={10} />
+            </button>
+            {tzOpen && (
+              <div className="tz-drop">
+                <div style={{ fontSize:9, color:"#a0a0bc", letterSpacing:"2px", padding:"4px 12px 8px", textTransform:"uppercase" }}>Timezone</div>
+                {TIMEZONES.map(t => (
+                  <div key={t.tz} className={`tz-item${timezone===t.tz?" sel":""}`}
+                    onClick={() => { setTimezone(t.tz); setTzOpen(false); }}>
+                    <span>{t.label}</span>
+                    <span style={{ fontSize:10, opacity:.65, fontVariantNumeric:"tabular-nums" }}>
+                      {new Date().toLocaleTimeString("en-GB",{ timeZone:t.tz, hour:"2-digit", minute:"2-digit" })}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div style={{ fontSize:7, color:"#a0a0bc", letterSpacing:"1px" }}>STREAK</div>
-            </div>
-            <div className="rf-divider" />
-
-            {/* Today % — hidden below 430px */}
-            <div className="rf-stat">
-              <div style={{ color:"#fff", fontWeight:500, fontSize:12 }}>{todayPct}%</div>
-              <div style={{ fontSize:7, color:"#a0a0bc", letterSpacing:"1px" }}>TODAY</div>
-            </div>
-            <div className="rf-divider" />
-
-            {/* Avatar — always visible */}
-            <div title={user.email}
-              style={{ width:26, height:26, borderRadius:"50%", background:"linear-gradient(135deg,#f97316,#f43f5e)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0 }}>
-              {initials}
-            </div>
-
-            {/* SYNC — always visible, tappable reload */}
-            <button
-              title={syncReady ? "Tap to reload latest data from cloud" : "Loading…"}
-              onClick={async () => {
-                if (!user) return;
-                setSyncReady(false);
-                store.setUid(user.uid);
-                try {
-                  const [t, l, g, tz] = await Promise.all([
-                    store.get("rf_tasks"),
-                    store.get("rf_logs"),
-                    store.get("rf_goals"),
-                    store.get("rf_tz"),
-                  ]);
-                  if (t)  setTasks(t);
-                  if (l)  setLogs(l);
-                  if (g)  setGoals(g);
-                  if (tz) setTimezone(tz);
-                } catch(e) { console.warn("Sync failed:", e); }
-                setTimeout(() => setSyncReady(true), 500);
-              }}
-              style={{ flexShrink:0, background:"none", border:`1px solid ${syncReady?"#10b98166":"#f9731666"}`, borderRadius:6, padding:"3px 7px", cursor:"pointer", fontFamily:"inherit", transition:"all 0.2s" }}>
-              <span style={{ fontSize:9, color:syncReady?"#10b981":"#f97316", letterSpacing:".3px", whiteSpace:"nowrap" }}>
-                {syncReady ? "☁ SYNC" : "↻"}
-              </span>
-            </button>
-
-            {/* OUT — always visible */}
-            <button onClick={handleLogout} title="Sign out"
-              style={{ flexShrink:0, background:"none", border:"1px solid #252540", borderRadius:6, padding:"3px 7px", color:"#6e6e8a", fontSize:9, fontFamily:"inherit", cursor:"pointer", letterSpacing:".3px", transition:"all 0.15s", whiteSpace:"nowrap" }}
-              onMouseEnter={e=>{e.currentTarget.style.color="#f43f5e";e.currentTarget.style.borderColor="#f43f5e44";}}
-              onMouseLeave={e=>{e.currentTarget.style.color="#6e6e8a";e.currentTarget.style.borderColor="#252540";}}>
-              OUT
-            </button>
+            )}
           </div>
-        </div>
 
-        {/* Bottom row: Clock full width */}
-        <div style={{ padding:"0 12px 10px", position:"relative" }}>
-          <button onClick={() => setTzOpen(o => !o)}
-            style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", background:"#0f0f1e", border:"1px solid #1e1e38", borderRadius:8, padding:"7px 12px", outline:"none", color:"inherit", fontFamily:"inherit", width:"100%", boxSizing:"border-box" }}>
-            <Icon name="clock" size={13} />
-            <span style={{ fontSize:13, fontWeight:500, color:"#fff", letterSpacing:"1.5px", fontVariantNumeric:"tabular-nums" }}>{clock}</span>
-            <span style={{ fontSize:10, color:"#b0b0c8", marginLeft:4, flex:1, textAlign:"left" }}>{tzLabel}</span>
-            <Icon name="chev" size={11} />
+          {/* Divider */}
+          <div style={{ width:1, height:24, background:"#181830", flexShrink:0 }} />
+
+          {/* Streak */}
+          <div style={{ textAlign:"center", flexShrink:0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:3, color:"#f97316", fontWeight:500, fontSize:12 }}>
+              <Icon name="flame" size={11} /> <span>{streak}</span>
+            </div>
+            <div style={{ fontSize:7, color:"#a0a0bc", letterSpacing:"1px" }}>STREAK</div>
+          </div>
+
+          <div style={{ width:1, height:24, background:"#181830", flexShrink:0 }} />
+
+          {/* Today % */}
+          <div style={{ textAlign:"center", flexShrink:0 }}>
+            <div style={{ color:"#fff", fontWeight:500, fontSize:12 }}>{todayPct}%</div>
+            <div style={{ fontSize:7, color:"#a0a0bc", letterSpacing:"1px" }}>TODAY</div>
+          </div>
+
+          <div style={{ width:1, height:24, background:"#181830", flexShrink:0 }} />
+
+          {/* Avatar */}
+          <div title={user.email} style={{ width:26, height:26, borderRadius:"50%", background:"linear-gradient(135deg,#f97316,#f43f5e)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0 }}>
+            {initials}
+          </div>
+
+          {/* SYNC button */}
+          <button
+            title={syncReady ? "Tap to reload latest data from cloud" : "Loading…"}
+            onClick={async () => {
+              if (!user) return;
+              setSyncReady(false);
+              store.setUid(user.uid);
+              try {
+                const [t, l, g, tz] = await Promise.all([
+                  store.get("rf_tasks"),
+                  store.get("rf_logs"),
+                  store.get("rf_goals"),
+                  store.get("rf_tz"),
+                ]);
+                if (t)  setTasks(t);
+                if (l)  setLogs(l);
+                if (g)  setGoals(g);
+                if (tz) setTimezone(tz);
+              } catch(e) { console.warn("Sync failed:", e); }
+              setTimeout(() => setSyncReady(true), 500);
+            }}
+            style={{ flexShrink:0, background:"none", border:`1px solid ${syncReady?"#10b98166":"#f9731666"}`, borderRadius:6, padding:"4px 8px", cursor:"pointer", fontFamily:"inherit", transition:"all 0.2s" }}>
+            <span style={{ fontSize:9, color:syncReady?"#10b981":"#f97316", letterSpacing:".3px", whiteSpace:"nowrap" }}>
+              {syncReady ? "☁ SYNC" : "↻"}
+            </span>
           </button>
 
-          {tzOpen && (
-            <div className="tz-drop">
-              <div style={{ fontSize:9, color:"#a0a0bc", letterSpacing:"2px", padding:"4px 12px 8px", textTransform:"uppercase" }}>Timezone</div>
-              {TIMEZONES.map(t => (
-                <div key={t.tz} className={`tz-item${timezone===t.tz?" sel":""}`}
-                  onClick={() => { setTimezone(t.tz); setTzOpen(false); }}>
-                  <span>{t.label}</span>
-                  <span style={{ fontSize:10, opacity:.65, fontVariantNumeric:"tabular-nums" }}>
-                    {new Date().toLocaleTimeString("en-GB",{ timeZone:t.tz, hour:"2-digit", minute:"2-digit" })}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* OUT button */}
+          <button onClick={handleLogout} title="Sign out"
+            style={{ flexShrink:0, background:"none", border:"1px solid #252540", borderRadius:6, padding:"4px 8px", color:"#6e6e8a", fontSize:9, fontFamily:"inherit", cursor:"pointer", letterSpacing:".3px", transition:"all 0.15s", whiteSpace:"nowrap" }}
+            onMouseEnter={e=>{e.currentTarget.style.color="#f43f5e";e.currentTarget.style.borderColor="#f43f5e44";}}
+            onMouseLeave={e=>{e.currentTarget.style.color="#6e6e8a";e.currentTarget.style.borderColor="#252540";}}>
+            OUT
+          </button>
+
         </div>
       </div>
 
