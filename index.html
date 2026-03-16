@@ -662,15 +662,26 @@ function App() {
         <style>{`
           .rf-stat { display:flex; flex-direction:column; align-items:center; }
           .rf-divider { width:1px; height:22px; background:#181830; flex-shrink:0; }
-          @media (max-width:430px) { .rf-stat { display:none !important; } .rf-divider { display:none !important; } }
+          .rf-logo-full { display:inline; }
+          .rf-logo-short { display:none !important; }
+          @media (max-width:430px) {
+            .rf-stat { display:none !important; }
+            .rf-divider { display:none !important; }
+            .rf-logo-full { display:none !important; }
+            .rf-logo-short { display:inline !important; }
+          }
         `}</style>
 
         {/* Top row */}
         <div style={{ padding:"10px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
 
-          {/* Logo + date — shrinks if needed */}
+          {/* Logo + date — compact on mobile */}
           <div style={{ minWidth:0, flex:"0 1 auto" }}>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:800, letterSpacing:"-0.5px", color:"#fff", whiteSpace:"nowrap" }}>ROUTINEFLOW</div>
+            {/* Full name on wider screens, short "RF" on mobile */}
+            <div style={{ fontFamily:"'Syne',sans-serif", letterSpacing:"-0.5px", color:"#fff", whiteSpace:"nowrap" }}>
+              <span style={{ fontSize:17, fontWeight:800 }} className="rf-logo-full">ROUTINEFLOW</span>
+              <span style={{ fontSize:22, fontWeight:800, letterSpacing:"1px", display:"none" }} className="rf-logo-short">RF</span>
+            </div>
             <div style={{ fontSize:9, color:"#a0a0bc", letterSpacing:"1.2px", textTransform:"uppercase", marginTop:1, whiteSpace:"nowrap" }}>
               {new Date().toLocaleDateString("en-GB",{ timeZone:timezone, weekday:"short", day:"numeric", month:"short" })}
             </div>
