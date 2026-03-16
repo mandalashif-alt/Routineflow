@@ -935,12 +935,10 @@ function TodayView({ tasks, allTasks, viewLog, viewKey, todayKey, selectedDate, 
         <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", textTransform:"uppercase" }}>
           {isToday ? "Today's" : isFuture ? "Planned" : "Past"} Schedule
         </div>
-        {isToday && (
-          <button onClick={onAddTask} className="btn-glow"
-            style={{ display:"flex", alignItems:"center", gap:6, background:"#f97316", border:"none", borderRadius:6, padding:"6px 14px", color:"#fff", fontSize:11, fontFamily:"inherit", cursor:"pointer", letterSpacing:"1px" }}>
-            <Icon name="plus" size={12} /> ADD TASK
-          </button>
-        )}
+        <button onClick={onAddTask} className="btn-glow"
+          style={{ display:"flex", alignItems:"center", gap:6, background:"#f97316", border:"none", borderRadius:6, padding:"6px 14px", color:"#fff", fontSize:11, fontFamily:"inherit", cursor:"pointer", letterSpacing:"1px" }}>
+          <Icon name="plus" size={12} /> ADD TASK
+        </button>
       </div>
 
       {tasks.length === 0 && (
@@ -1001,23 +999,21 @@ function TodayView({ tasks, allTasks, viewLog, viewKey, todayKey, selectedDate, 
                 </div>
               </div>
 
-              {/* Duration + actions (edit/delete only on today view) */}
+              {/* Duration + actions */}
               <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
                 <span style={{ background:"#13132a", padding:"3px 8px", borderRadius:4, fontSize:11, color:"#b0b0c8" }}>{fmtMins(task.duration)}</span>
-                {isToday && <>
-                  <button onClick={e => { e.stopPropagation(); onEditTask(task); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:4, display:"flex" }}><Icon name="edit" size={13} /></button>
-                  <button onClick={e => { e.stopPropagation(); onDeleteTask(task.id); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:4, display:"flex" }}><Icon name="trash" size={13} /></button>
-                </>}
+                <button onClick={e => { e.stopPropagation(); onEditTask(task); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:4, display:"flex" }}><Icon name="edit" size={13} /></button>
+                <button onClick={e => { e.stopPropagation(); onDeleteTask(task.id); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:4, display:"flex" }}><Icon name="trash" size={13} /></button>
               </div>
             </div>
           );
         })}
       </div>
 
-      {isToday && allTasks.length > tasks.length && (
+      {allTasks.length > tasks.length && (
         <div style={{ marginTop:18, padding:12, background:"#0d0d1c", border:"1px dashed #181830", borderRadius:10 }}>
           <div style={{ fontSize:11, color:"#6e6e8a" }}>
-            {allTasks.length-tasks.length} task{allTasks.length-tasks.length>1?"s":""} not scheduled for today — edit repeat to include today.
+            {allTasks.length-tasks.length} task{allTasks.length-tasks.length>1?"s":""} not scheduled for this day — edit their repeat settings to include it.
           </div>
         </div>
       )}
