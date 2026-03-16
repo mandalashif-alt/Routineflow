@@ -295,6 +295,88 @@ function useClock(tz) {
 }
 
 // ─── Notification Engine ──────────────────────────────────────────────────────
+// ─── Sound Engine (Web Audio API — no external files needed) ─────────────────
+const RFSound = {
+  _ctx: null,
+
+  // Lazily create AudioContext (must be after a user gesture on iOS)
+  getCtx() {
+    if (!this._ctx) {
+      try { this._ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e) { return null; }
+    }
+    // iOS suspends AudioContext — resume it
+    if (this._ctx.state === 'suspended') this._ctx.resume();
+    return this._ctx;
+  },
+
+  // Play a single tone: freq (Hz), start (sec offset), duration (sec), volume 0-1, type
+  _tone(ctx, freq, start, dur, vol=0.5, type='sine') {
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type      = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+    gain.gain.setValueAtTime(0, ctx.currentTime + start);
+    gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+    osc.start(ctx.currentTime + start);
+    osc.stop(ctx.currentTime + start + dur + 0.05);
+  },
+
+  // ── Sound styles ──────────────────────────────────────────────────────────
+
+  // Gentle chime — 3 ascending tones (like a doorbell)
+  chime(vol=0.6) {
+    const ctx = this.getCtx(); if (!ctx) return;
+    this._tone(ctx, 523, 0.00, 0.5, vol, 'sine');   // C5
+    this._tone(ctx, 659, 0.25, 0.5, vol, 'sine');   // E5
+    this._tone(ctx, 784, 0.50, 0.8, vol, 'sine');   // G5
+  },
+
+  // Alert bell — 2 quick double-rings (like a school bell)
+  bell(vol=0.6) {
+    const ctx = this.getCtx(); if (!ctx) return;
+    [0, 0.15, 0.5, 0.65].forEach(t => {
+      this._tone(ctx, 880, t, 0.12, vol, 'square');
+      this._tone(ctx, 1100, t, 0.12, vol*0.4, 'sine');
+    });
+  },
+
+  // Ringtone — classic phone ring pattern
+  ringtone(vol=0.6) {
+    const ctx = this.getCtx(); if (!ctx) return;
+    // Two bursts of alternating tones like a real ringtone
+    const burst = (offset) => {
+      for (let i = 0; i < 6; i++) {
+        const freq = i % 2 === 0 ? 480 : 440;
+        this._tone(ctx, freq, offset + i * 0.1, 0.09, vol, 'sawtooth');
+      }
+    };
+    burst(0.0);
+    burst(0.8);
+  },
+
+  // Soft ping — single gentle note (for end-of-task)
+  ping(vol=0.5) {
+    const ctx = this.getCtx(); if (!ctx) return;
+    this._tone(ctx, 660, 0, 0.6, vol, 'sine');
+    this._tone(ctx, 990, 0.05, 0.4, vol*0.3, 'sine');
+  },
+
+  // Play by name
+  play(name='chime', vol=0.6) {
+    try {
+      if (name === 'bell')     this.bell(vol);
+      else if (name === 'ringtone') this.ringtone(vol);
+      else if (name === 'ping') this.ping(vol);
+      else this.chime(vol);
+    } catch(e) { console.warn('RFSound error:', e); }
+  }
+};
+
+// ─── Notification Engine ──────────────────────────────────────────────────────
 const RFNotify = {
   _timers: [],
 
@@ -303,19 +385,25 @@ const RFNotify = {
     if (!('Notification' in window)) return 'unsupported';
     if (Notification.permission === 'granted') return 'granted';
     if (Notification.permission === 'denied')  return 'denied';
+    // Unlock audio at the same time as permission (iOS requires user gesture)
+    RFSound.getCtx();
     const result = await Notification.requestPermission();
     return result;
   },
 
-  // Show a notification — via SW if available, fallback to direct API
-  async show(title, body, tag) {
+  // Show a notification + play sound
+  async show(title, body, tag, soundName, volume) {
+    // Always play sound if app is open (foreground)
+    RFSound.play(soundName || 'chime', volume || 0.6);
+
+    // System notification (background + lock screen)
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     try {
       const sw = window._swReg || (navigator.serviceWorker && await navigator.serviceWorker.ready);
       if (sw && sw.active) {
         sw.active.postMessage({ type:'SHOW_NOTIFICATION', title, body, tag });
       } else {
-        new Notification(title, { body, tag, icon: '' });
+        new Notification(title, { body, tag });
       }
     } catch(e) {
       try { new Notification(title, { body, tag }); } catch {}
@@ -328,56 +416,54 @@ const RFNotify = {
     this._timers = [];
   },
 
-  // Schedule notifications for today's tasks
+  // Schedule notifications + sounds for today's tasks
   scheduleTasks(tasks, timezone, settings) {
     this.clearAll();
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if (!settings.enabled) return;
 
-    const now  = new Date();
+    const now      = new Date();
     const todayStr = now.toLocaleDateString('en-CA', { timeZone: timezone });
+    const sound    = settings.sound  || 'chime';
+    const volume   = (settings.volume ?? 70) / 100;
 
     tasks.forEach(task => {
       if (!task.startTime) return;
-      const [h, m] = task.startTime.split(':').map(Number);
-
-      // Build a Date for today's task start
-      const taskDate = new Date(todayStr + 'T' + task.startTime + ':00');
-      const taskEndMs = taskDate.getTime() + (task.duration || 30) * 60000;
+      const taskDate   = new Date(todayStr + 'T' + task.startTime + ':00');
+      const taskEndMs  = taskDate.getTime() + (task.duration || 30) * 60000;
       const msUntilStart = taskDate - now;
       const msUntilEnd   = taskEndMs - now;
 
-      // 5-min warning
+      // 5-min warning — gentle chime
       if (settings.fiveMin && msUntilStart > 5 * 60000) {
         const id = setTimeout(() => {
           this.show(
             `⏰ Starting in 5 minutes`,
-            `${task.name} — ${task.startTime}`,
-            `rf-warn-${task.id}`
+            `${task.name} — ${fmt12(task.startTime)}`,
+            `rf-warn-${task.id}`, 'chime', volume * 0.7
           );
         }, msUntilStart - 5 * 60000);
         this._timers.push(id);
       }
 
-      // At start
+      // At start — full ringtone/bell to grab attention
       if (settings.onStart && msUntilStart > 0) {
         const id = setTimeout(() => {
           this.show(
-            `▶ Task starting now`,
-            `${task.name}`,
-            `rf-start-${task.id}`
+            `▶ ${task.name}`,
+            `Starting now · ${fmt12(task.startTime)}`,
+            `rf-start-${task.id}`, sound, volume
           );
         }, msUntilStart);
         this._timers.push(id);
       }
 
-      // At end
+      // At end — soft ping
       if (settings.onEnd && msUntilEnd > 0) {
         const id = setTimeout(() => {
           this.show(
-            `✓ Task complete`,
-            `${task.name} finished`,
-            `rf-end-${task.id}`
+            `✓ ${task.name} complete`,
+            `Well done! Task finished.`,
+            `rf-end-${task.id}`, 'ping', volume * 0.8
           );
         }, msUntilEnd);
         this._timers.push(id);
@@ -433,9 +519,24 @@ function NotifBanner({ onGranted, onDismiss }) {
 
 // ─── Notification Settings Panel ─────────────────────────────────────────────
 function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
-  const [testing, setTesting] = useState(false);
-  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const [testing, setTesting] = React.useState(null);
+  const isIos        = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone = window.navigator.standalone;
+  const vol = (settings.volume ?? 70) / 100;
+
+  const sounds = [
+    { id:'chime',    label:'🎵 Chime',    desc:'Gentle 3-tone melody' },
+    { id:'bell',     label:'🔔 Bell',     desc:'Double alert ring' },
+    { id:'ringtone', label:'📱 Ringtone', desc:'Classic phone ring' },
+    { id:'ping',     label:'✨ Ping',     desc:'Single soft note' },
+  ];
+
+  const handleTest = (soundId) => {
+    setTesting(soundId);
+    RFSound.getCtx();
+    setTimeout(() => { RFSound.play(soundId, vol); }, 50);
+    setTimeout(() => setTesting(null), 1800);
+  };
 
   const Toggle = ({ label, sublabel, value, onToggle, disabled }) => (
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 0", borderBottom:"1px solid #181830", opacity:disabled?0.4:1 }}>
@@ -450,91 +551,106 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
     </div>
   );
 
-  const handleTest = async () => {
-    setTesting(true);
-    await RFNotify.show("🔔 RoutineFlow test", "Notifications are working correctly!", "rf-test");
-    setTimeout(() => setTesting(false), 2000);
-  };
-
-  // Next scheduled task
-  const now = new Date();
+  const now      = new Date();
   const todayStr = now.toLocaleDateString('en-CA', { timeZone: timezone });
-  const upcoming = (tasks || [])
+  const upcoming = (tasks||[])
     .filter(t => t.startTime && taskAppliesToDate(t, todayStr))
-    .map(t => {
-      const [h, m] = t.startTime.split(':').map(Number);
-      const ms = new Date(todayStr + 'T' + t.startTime + ':00') - now;
-      return { ...t, ms };
-    })
+    .map(t => ({ ...t, ms: new Date(todayStr+'T'+t.startTime+':00') - now }))
     .filter(t => t.ms > 0)
-    .sort((a, b) => a.ms - b.ms)[0];
+    .sort((a,b) => a.ms - b.ms)[0];
 
   const fmtCountdown = ms => {
-    const totalMins = Math.ceil(ms / 60000);
-    if (totalMins < 60) return `${totalMins}m`;
-    return `${Math.floor(totalMins/60)}h ${totalMins%60}m`;
+    const m = Math.ceil(ms/60000);
+    return m < 60 ? `${m}m` : `${Math.floor(m/60)}h ${m%60}m`;
   };
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", zIndex:1000, display:"flex", alignItems:"flex-end" }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ width:"100%", background:"#0e0e1d", borderRadius:"18px 18px 0 0", padding:"20px 18px 32px", maxHeight:"85vh", overflowY:"auto" }}>
+      <div style={{ width:"100%", background:"#0e0e1d", borderRadius:"18px 18px 0 0", padding:"20px 18px 36px", maxHeight:"90vh", overflowY:"auto" }}>
 
-        {/* Header */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:700, color:"#fff" }}>🔔 Notifications</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:700, color:"#fff" }}>🔔 Notifications & Sound</div>
           <button onClick={onClose} style={{ background:"none", border:"none", color:"#6e6e8a", fontSize:20, cursor:"pointer", padding:4, lineHeight:1 }}>✕</button>
         </div>
 
-        {/* Next task chip */}
         {upcoming && settings.enabled && (
-          <div style={{ background:"#0d1a0d", border:"1px solid #10b98133", borderRadius:8, padding:"9px 13px", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:18 }}>⏰</span>
+          <div style={{ background:"#0d1a0d", border:"1px solid #10b98133", borderRadius:9, padding:"10px 14px", marginBottom:16, display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:22 }}>⏰</span>
             <div>
               <div style={{ fontSize:12, color:"#10b981", fontWeight:600 }}>Next alert in {fmtCountdown(upcoming.ms)}</div>
-              <div style={{ fontSize:11, color:"#6e6e8a", marginTop:1 }}>{upcoming.name} — {fmt12(upcoming.startTime)}</div>
+              <div style={{ fontSize:11, color:"#6e6e8a", marginTop:2 }}>{upcoming.name} — {fmt12(upcoming.startTime)}</div>
             </div>
           </div>
         )}
 
-        {/* iOS install warning */}
         {isIos && !isStandalone && (
-          <div style={{ background:"#1a1208", border:"1px solid #f9731644", borderRadius:8, padding:"10px 13px", marginBottom:14 }}>
-            <div style={{ fontSize:12, color:"#f97316", fontWeight:600, marginBottom:4 }}>📲 Install app to receive notifications</div>
+          <div style={{ background:"#1a1208", border:"1px solid #f9731644", borderRadius:9, padding:"10px 13px", marginBottom:16 }}>
+            <div style={{ fontSize:12, color:"#f97316", fontWeight:600, marginBottom:4 }}>📲 iPhone: Install app for lock screen alerts</div>
             <div style={{ fontSize:11, color:"#a0a0bc", lineHeight:1.6 }}>
-              Tap <b style={{color:"#fff"}}>Share ↑</b> in Safari → <b style={{color:"#fff"}}>Add to Home Screen</b> → reopen app from home screen, then grant permission.
+              Tap <b style={{color:"#fff"}}>Share ↑</b> → <b style={{color:"#fff"}}>Add to Home Screen</b> → reopen from home screen. Sound works immediately when app is open.
             </div>
           </div>
         )}
 
-        {/* Toggles */}
-        <Toggle label="Notifications enabled" sublabel="Master switch for all task alerts"
+        <Toggle label="Notifications & sounds enabled" sublabel="Master switch for all alerts"
           value={settings.enabled} onToggle={() => onChange({...settings, enabled:!settings.enabled})} />
-        <Toggle label="5-minute warning" sublabel="Get alerted 5 mins before a task starts"
+        <Toggle label="5-minute warning" sublabel="Gentle chime 5 mins before task starts"
           value={settings.fiveMin} onToggle={() => onChange({...settings, fiveMin:!settings.fiveMin})}
           disabled={!settings.enabled} />
-        <Toggle label="Task starts" sublabel="Alert exactly when a task begins"
+        <Toggle label="Task starts" sublabel="Full alert sound when task begins"
           value={settings.onStart} onToggle={() => onChange({...settings, onStart:!settings.onStart})}
           disabled={!settings.enabled} />
-        <Toggle label="Task ends" sublabel="Alert when a task's duration is complete"
+        <Toggle label="Task ends" sublabel="Soft ping when task is done"
           value={settings.onEnd} onToggle={() => onChange({...settings, onEnd:!settings.onEnd})}
           disabled={!settings.enabled} />
 
-        {/* Test + Save buttons */}
-        <div style={{ display:"flex", gap:8, marginTop:18 }}>
-          <button onClick={handleTest}
-            style={{ flex:1, background:"#131328", border:"1px solid #252545", borderRadius:9, padding:"11px", color:"#a0a0bc", fontSize:12, fontFamily:"inherit", cursor:"pointer", fontWeight:500 }}>
-            {testing ? "✓ Sent!" : "🔔 Test notification"}
-          </button>
+        {/* Sound picker */}
+        <div style={{ marginTop:16, paddingBottom:14, borderBottom:"1px solid #181830", opacity:settings.enabled?1:0.4 }}>
+          <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:12 }}>Alert Sound</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            {sounds.map(s => (
+              <div key={s.id}
+                style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:settings.sound===s.id?"#f9731620":"#131328", border:`1px solid ${settings.sound===s.id?"#f97316":"#242444"}`, borderRadius:9, padding:"9px 11px", cursor:"pointer", transition:"all 0.15s" }}
+                onClick={() => settings.enabled && onChange({...settings, sound:s.id})}>
+                <div>
+                  <div style={{ fontSize:12, color:settings.sound===s.id?"#f97316":"#e8e6f0", fontWeight:settings.sound===s.id?600:400 }}>{s.label}</div>
+                  <div style={{ fontSize:10, color:"#6e6e8a", marginTop:2 }}>{s.desc}</div>
+                </div>
+                <button onClick={e => { e.stopPropagation(); handleTest(s.id); }}
+                  style={{ background:testing===s.id?"#10b981":"#1e1e38", border:`1px solid ${testing===s.id?"#10b981":"#2a2a45"}`, borderRadius:6, padding:"5px 9px", cursor:"pointer", color:testing===s.id?"#fff":"#a0a0bc", fontSize:13, flexShrink:0, transition:"all 0.2s" }}>
+                  {testing===s.id ? "♪" : "▶"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Volume */}
+        <div style={{ paddingTop:14, paddingBottom:14, borderBottom:"1px solid #181830", opacity:settings.enabled?1:0.4 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+            <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase" }}>Volume</div>
+            <div style={{ fontSize:14, color:"#f97316", fontWeight:700 }}>{settings.volume ?? 70}%</div>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:16 }}>🔈</span>
+            <input type="range" min="10" max="100" step="5"
+              value={settings.volume ?? 70}
+              onChange={e => onChange({...settings, volume:parseInt(e.target.value)})}
+              style={{ flex:1, accentColor:"#f97316", cursor:"pointer" }} />
+            <span style={{ fontSize:16 }}>🔊</span>
+          </div>
+        </div>
+
+        <div style={{ marginTop:18 }}>
           <button onClick={onClose}
-            style={{ flex:2, background:"#f97316", border:"none", borderRadius:9, padding:"11px", color:"#fff", fontSize:13, fontFamily:"inherit", cursor:"pointer", fontWeight:600 }}>
-            Done
+            style={{ width:"100%", background:"#f97316", border:"none", borderRadius:10, padding:"13px", color:"#fff", fontSize:14, fontFamily:"inherit", cursor:"pointer", fontWeight:700 }}>
+            Save & Close
           </button>
         </div>
 
-        <div style={{ marginTop:14, fontSize:10, color:"#525270", lineHeight:1.7, textAlign:"center" }}>
-          Notifications fire at task start times using your device clock.<br/>
-          {isIos ? "iPhone requires iOS 16.4+ and app installed to Home Screen." : "Works in all browsers that support the Notifications API."}
+        <div style={{ marginTop:12, fontSize:10, color:"#525270", lineHeight:1.7, textAlign:"center" }}>
+          Sound plays when app is open. Lock screen alerts need app installed to Home Screen on iPhone.
         </div>
       </div>
     </div>
@@ -750,7 +866,7 @@ function App() {
   const [syncReady, setSyncReady] = useState(false);
 
   // ── Notification state ───────────────────────────────────────────────────────
-  const defaultNotifSettings = { enabled:true, fiveMin:true, onStart:true, onEnd:false };
+  const defaultNotifSettings = { enabled:true, fiveMin:true, onStart:true, onEnd:false, sound:'chime', volume:70 };
   const [notifPermission,  setNotifPermission]  = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
   const [notifSettings,    setNotifSettings]    = useState(() => {
     try { return JSON.parse(localStorage.getItem('rf_notif_settings')) || defaultNotifSettings; } catch { return defaultNotifSettings; }
