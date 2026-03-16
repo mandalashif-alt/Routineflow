@@ -32,6 +32,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; background: #080810; overflow-x: hidden; }
@@ -100,15 +105,74 @@
       const swUrl  = URL.createObjectURL(swBlob);
       navigator.serviceWorker.register(swUrl).catch(() => {});
     }
+
+    // ── FIREBASE CONFIG ─────────────────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey:            "AIzaSyD45Ml7nKM3v7QN5cMcmsH-I_p3fALDGxQ",
+      authDomain:        "routineflow-36522.firebaseapp.com",
+      projectId:         "routineflow-36522",
+      storageBucket:     "routineflow-36522.firebasestorage.app",
+      messagingSenderId: "2685960181",
+      appId:             "1:2685960181:web:8cceb3b5b3fc695cbdaabc",
+      measurementId:     "G-KVH5C3CXFF"
+    };
+    // ── FIREBASE INIT ───────────────────────────────────────────────────────
+    try {
+      firebase.initializeApp(firebaseConfig);
+      window._auth = firebase.auth();
+      window._db   = firebase.firestore();
+      window._firebaseReady = true;
+      // Enable offline persistence
+      window._db.enablePersistence().catch(() => {});
+    } catch(e) {
+      console.warn("Firebase unavailable (preview mode) — falling back to localStorage");
+      window._firebaseReady = false;
+      // Mock auth object so app doesn't crash in preview
+      window._auth = {
+        onAuthStateChanged: (cb) => { cb(null); return () => {}; },
+        signInWithEmailAndPassword: () => Promise.reject({ code:"auth/preview-mode", message:"Firebase not available in preview. Please open via GitHub Pages." }),
+        createUserWithEmailAndPassword: () => Promise.reject({ code:"auth/preview-mode", message:"Firebase not available in preview. Please open via GitHub Pages." }),
+        signInWithPopup: () => Promise.reject({ code:"auth/preview-mode", message:"Firebase not available in preview. Please open via GitHub Pages." }),
+        signOut: () => Promise.resolve(),
+      };
+      window._db = null;
+    }
   </script>
 
   <script type="text/babel" data-presets="react">
     const { useState, useEffect, useCallback } = React;
 
-// ─── Storage ──────────────────────────────────────────────────────────────────
+// ─── Firestore Storage ────────────────────────────────────────────────────────
+let _currentUid = null;
+
 const store = {
-  async get(key) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; } },
-  async set(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+  setUid(uid) { _currentUid = uid; },
+  async get(key) {
+    try {
+      if (_currentUid && window._db) {
+        const doc = await window._db.collection('users').doc(_currentUid).get();
+        if (doc.exists) {
+          const val = doc.data()[key];
+          return val !== undefined ? val : null;
+        }
+        return null;
+      }
+      // Fallback: localStorage (preview / offline)
+      const v = localStorage.getItem(key);
+      return v ? JSON.parse(v) : null;
+    } catch { return null; }
+  },
+  async set(key, val) {
+    try {
+      if (_currentUid && window._db) {
+        await window._db.collection('users').doc(_currentUid).set(
+          { [key]: val }, { merge: true }
+        );
+        return;
+      }
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch {}
+  }
 };
 
 // ─── Timezones ────────────────────────────────────────────────────────────────
@@ -211,15 +275,9 @@ function useClock(tz) {
   return time;
 }
 
-// ─── Simple hash (for storing passwords locally) ──────────────────────────────
-const hashStr = async s => {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
-};
-
-// ─── Auth Screen ──────────────────────────────────────────────────────────────
+// ─── Auth Screen (Firebase) ───────────────────────────────────────────────────
 function AuthScreen({ onAuth }) {
-  const [mode,    setMode]    = useState("login"); // "login" | "signup"
+  const [mode,    setMode]    = useState("login");
   const [name,    setName]    = useState("");
   const [email,   setEmail]   = useState("");
   const [pass,    setPass]    = useState("");
@@ -230,37 +288,56 @@ function AuthScreen({ onAuth }) {
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const handleSubmit = async () => {
-    setError("");
-    if (!emailValid)          return setError("Please enter a valid email address.");
-    if (pass.length < 6)      return setError("Password must be at least 6 characters.");
-    if (mode === "signup") {
-      if (!name.trim())       return setError("Please enter your name.");
-      if (pass !== confirm)   return setError("Passwords do not match.");
-    }
-    setLoading(true);
+  // ── Google Sign-In ──────────────────────────────────────────────────────────
+  const handleGoogle = async () => {
+    setError(""); setLoading(true);
     try {
-      const hash = await hashStr(pass);
-      if (mode === "signup") {
-        const existing = await store.get("rf_user_" + email.toLowerCase());
-        if (existing)         { setError("An account with this email already exists. Please sign in."); setLoading(false); return; }
-        const user = { name: name.trim(), email: email.toLowerCase(), hash };
-        await store.set("rf_user_" + email.toLowerCase(), user);
-        await store.set("rf_session", { email: email.toLowerCase(), name: name.trim() });
-        onAuth({ name: name.trim(), email: email.toLowerCase() });
+      const provider = new firebase.auth.GoogleAuthProvider();
+      const result   = await window._auth.signInWithPopup(provider);
+      const fbUser   = result.user;
+      // onAuthStateChanged in App will handle the rest
+    } catch (e) {
+      if (e.code === "auth/preview-mode") {
+        setError("⚠️ Firebase only works when hosted online (GitHub Pages). This preview cannot connect to Firebase. Upload the file to GitHub Pages and it will work fully.");
+      } else if (e.code === "auth/popup-closed-by-user") {
+        setError("Sign-in popup was closed. Please try again.");
+      } else if (e.code === "auth/configuration-not-found" || e.code === "auth/invalid-api-key") {
+        setError("Firebase is not configured yet. Please paste your Firebase config into the HTML file first. See setup instructions below.");
       } else {
-        const user = await store.get("rf_user_" + email.toLowerCase());
-        if (!user)            { setError("No account found with this email. Please sign up."); setLoading(false); return; }
-        if (user.hash !== hash) { setError("Incorrect password. Please try again."); setLoading(false); return; }
-        await store.set("rf_session", { email: user.email, name: user.name });
-        onAuth({ name: user.name, email: user.email });
+        setError(e.message || "Google sign-in failed. Please try again.");
       }
-    } catch (e) { setError("Something went wrong. Please try again."); }
+    }
     setLoading(false);
   };
 
-  const handleGoogleNote = () => {
-    setError("Google Sign-In requires a Google Cloud OAuth setup with a registered Client ID. For now, please use email & password to get started.");
+  // ── Email / Password ────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    setError("");
+    if (!emailValid)        return setError("Please enter a valid email address.");
+    if (pass.length < 6)    return setError("Password must be at least 6 characters.");
+    if (mode === "signup") {
+      if (!name.trim())     return setError("Please enter your name.");
+      if (pass !== confirm) return setError("Passwords do not match.");
+    }
+    setLoading(true);
+    try {
+      if (mode === "signup") {
+        const cred = await window._auth.createUserWithEmailAndPassword(email.trim(), pass);
+        await cred.user.updateProfile({ displayName: name.trim() });
+        // onAuthStateChanged in App picks this up automatically
+      } else {
+        await window._auth.signInWithEmailAndPassword(email.trim(), pass);
+      }
+    } catch (e) {
+      if (e.code === "auth/email-already-in-use")    setError("An account with this email already exists. Please sign in.");
+      else if (e.code === "auth/user-not-found")     setError("No account found with this email. Please sign up.");
+      else if (e.code === "auth/wrong-password")     setError("Incorrect password. Please try again.");
+      else if (e.code === "auth/invalid-credential") setError("Incorrect email or password. Please try again.");
+      else if (e.code === "auth/configuration-not-found" || e.code === "auth/invalid-api-key")
+        setError("Firebase is not configured yet. Please paste your Firebase config into the HTML file. See the setup guide.");
+      else setError(e.message || "Something went wrong. Please try again.");
+    }
+    setLoading(false);
   };
 
   const inputStyle = {
@@ -274,7 +351,7 @@ function AuthScreen({ onAuth }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@300;400;500&display=swap');
         .auth-input:focus { border-color:#f97316!important; }
-        .auth-btn-google:hover { background:#1a1a2e!important; border-color:#4a4a6a!important; }
+        .auth-btn-google:hover { background:#1a1a2e!important; border-color:#4285F4!important; }
         @keyframes fadeUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
         .auth-card { animation: fadeUp 0.45s ease; }
       `}</style>
@@ -288,8 +365,9 @@ function AuthScreen({ onAuth }) {
 
         {/* Card */}
         <div style={{ background:"#0e0e1d", border:"1px solid #1e1e38", borderRadius:16, padding:"32px 28px" }}>
+
           {/* Mode toggle */}
-          <div style={{ display:"flex", background:"#0a0a18", borderRadius:10, padding:4, marginBottom:28, border:"1px solid #1a1a30" }}>
+          <div style={{ display:"flex", background:"#0a0a18", borderRadius:10, padding:4, marginBottom:24, border:"1px solid #1a1a30" }}>
             {["login","signup"].map(m => (
               <button key={m} onClick={() => { setMode(m); setError(""); }}
                 style={{ flex:1, padding:"9px", border:"none", borderRadius:7, cursor:"pointer", fontFamily:"inherit", fontSize:12, letterSpacing:"1px", textTransform:"uppercase", fontWeight:500, background:mode===m?"#f97316":"transparent", color:mode===m?"#fff":"#6e6e8a", transition:"all 0.2s" }}>
@@ -298,21 +376,20 @@ function AuthScreen({ onAuth }) {
             ))}
           </div>
 
-          {/* Google button */}
-          <button className="auth-btn-google" onClick={handleGoogleNote}
-            style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"#111122", border:"1px solid #2a2a40", borderRadius:9, padding:"12px 16px", color:"#e8e6f0", fontSize:13, fontFamily:"inherit", cursor:"pointer", marginBottom:20, transition:"all 0.2s" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24">
+          {/* ── Google Sign-In button ── */}
+          <button className="auth-btn-google" onClick={handleGoogle} disabled={loading}
+            style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"#ffffff", border:"2px solid #dadce0", borderRadius:9, padding:"12px 16px", color:"#3c4043", fontSize:14, fontFamily:"inherit", cursor:"pointer", marginBottom:18, transition:"all 0.2s", fontWeight:500 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Continue with Google
-            <span style={{ fontSize:10, color:"#525270", marginLeft:2 }}>↗</span>
+            {loading ? "Connecting…" : "Continue with Google"}
           </button>
 
           {/* Divider */}
-          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:18 }}>
             <div style={{ flex:1, height:1, background:"#1a1a30" }} />
             <span style={{ fontSize:11, color:"#525270", letterSpacing:"1px" }}>OR</span>
             <div style={{ flex:1, height:1, background:"#1a1a30" }} />
@@ -328,14 +405,12 @@ function AuthScreen({ onAuth }) {
                   onKeyDown={e => e.key==="Enter" && handleSubmit()} />
               </div>
             )}
-
             <div>
               <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Email</div>
               <input className="auth-input" style={inputStyle} type="email" placeholder="you@example.com"
                 value={email} onChange={e => setEmail(e.target.value)}
                 onKeyDown={e => e.key==="Enter" && handleSubmit()} />
             </div>
-
             <div>
               <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Password</div>
               <div style={{ position:"relative" }}>
@@ -348,7 +423,6 @@ function AuthScreen({ onAuth }) {
                 </button>
               </div>
             </div>
-
             {mode === "signup" && (
               <div>
                 <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Confirm Password</div>
@@ -361,18 +435,18 @@ function AuthScreen({ onAuth }) {
 
           {/* Error */}
           {error && (
-            <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:8, padding:"10px 13px", marginTop:14, fontSize:12, color:"#f87090", lineHeight:1.5 }}>
+            <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:8, padding:"10px 13px", marginTop:14, fontSize:12, color:"#f87090", lineHeight:1.6 }}>
               {error}
             </div>
           )}
 
           {/* Submit */}
           <button onClick={handleSubmit} disabled={loading}
-            style={{ width:"100%", marginTop:18, padding:"13px", background: loading?"#7a3a10":"#f97316", border:"none", borderRadius:9, color:"#fff", fontSize:13, fontFamily:"inherit", fontWeight:500, letterSpacing:"1px", cursor: loading?"not-allowed":"pointer", transition:"background 0.2s", textTransform:"uppercase" }}>
+            style={{ width:"100%", marginTop:18, padding:"13px", background:loading?"#7a3a10":"#f97316", border:"none", borderRadius:9, color:"#fff", fontSize:13, fontFamily:"inherit", fontWeight:500, letterSpacing:"1px", cursor:loading?"not-allowed":"pointer", transition:"background 0.2s", textTransform:"uppercase" }}>
             {loading ? "Please wait…" : mode === "login" ? "Sign In →" : "Create Account →"}
           </button>
 
-          {/* Switch mode hint */}
+          {/* Switch mode */}
           <div style={{ textAlign:"center", marginTop:18, fontSize:12, color:"#6e6e8a" }}>
             {mode === "login"
               ? <>Don't have an account? <span onClick={() => { setMode("signup"); setError(""); }} style={{ color:"#f97316", cursor:"pointer" }}>Sign up free</span></>
@@ -382,7 +456,9 @@ function AuthScreen({ onAuth }) {
         </div>
 
         <div style={{ textAlign:"center", marginTop:20, fontSize:10, color:"#525270", lineHeight:1.7 }}>
-          Your data is stored locally on this device.<br/>No account info is sent to any server.
+          {window._firebaseReady
+            ? "Secured by Firebase · Data synced across all your devices"
+            : "⚠️ Preview mode — Firebase requires GitHub Pages to work. Upload to GitHub Pages for full functionality."}
         </div>
       </div>
     </div>
@@ -401,31 +477,49 @@ function App() {
   const [loaded,       setLoaded]       = useState(false);
   const [tzOpen,       setTzOpen]       = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [user,         setUser]         = useState(null);   // { name, email } | null
-  const [authChecked,  setAuthChecked]  = useState(false);  // true once session lookup done
+  const [user,         setUser]         = useState(null);
+  const [authChecked,  setAuthChecked]  = useState(false);
   const clock = useClock(timezone);
 
+  // ── Firebase Auth state listener ────────────────────────────────────────────
   useEffect(() => {
-    (async () => {
-      const session = await store.get("rf_session");
-      if (session) setUser(session);
-      setAuthChecked(true);
-      const t  = await store.get("rf_tasks");
-      const l  = await store.get("rf_logs");
-      const g  = await store.get("rf_goals");
-      const tz = await store.get("rf_tz");
-      if (t)  setTasks(t);
-      if (l)  setLogs(l);
-      if (g)  setGoals(g);
-      if (tz) setTimezone(tz);
+    const unsubscribe = window._auth.onAuthStateChanged(async (fbUser) => {
+      if (fbUser) {
+        const displayName = fbUser.displayName || fbUser.email.split("@")[0];
+        setUser({ name: displayName, email: fbUser.email, uid: fbUser.uid });
+        // Init store with this user's UID so all reads/writes go to their Firestore doc
+        store.setUid(fbUser.uid);
+        // Load all user data from Firestore
+        const [t, l, g, tz] = await Promise.all([
+          store.get("rf_tasks"),
+          store.get("rf_logs"),
+          store.get("rf_goals"),
+          store.get("rf_tz"),
+        ]);
+        if (t)  setTasks(t);
+        if (l)  setLogs(l);
+        if (g)  setGoals(g);
+        if (tz) setTimezone(tz);
+      } else {
+        setUser(null);
+        store.setUid(null);
+        // Reset to defaults on logout
+        setTasks(DEFAULT_TASKS);
+        setLogs({});
+        setGoals([]);
+        setTimezone("Europe/Berlin");
+      }
       setLoaded(true);
-    })();
+      setAuthChecked(true);
+    });
+    return () => unsubscribe();
   }, []);
 
-  useEffect(() => { if (loaded) store.set("rf_tasks", tasks);    }, [tasks,    loaded]);
-  useEffect(() => { if (loaded) store.set("rf_logs",  logs);     }, [logs,     loaded]);
-  useEffect(() => { if (loaded) store.set("rf_goals", goals);    }, [goals,    loaded]);
-  useEffect(() => { if (loaded) store.set("rf_tz",    timezone); }, [timezone, loaded]);
+  // ── Sync data to Firestore whenever it changes ───────────────────────────────
+  useEffect(() => { if (loaded && user) store.set("rf_tasks", tasks);    }, [tasks,    loaded, user]);
+  useEffect(() => { if (loaded && user) store.set("rf_logs",  logs);     }, [logs,     loaded, user]);
+  useEffect(() => { if (loaded && user) store.set("rf_goals", goals);    }, [goals,    loaded, user]);
+  useEffect(() => { if (loaded && user) store.set("rf_tz",    timezone); }, [timezone, loaded, user]);
 
   const tkey        = todayKey(timezone);
   // viewKey is the date we're currently viewing (defaults to today)
@@ -485,10 +579,7 @@ function App() {
     { id:"goals",   label:"Goals",    icon:"target"   },
   ];
 
-  const handleLogout = async () => {
-    await store.set("rf_session", null);
-    setUser(null);
-  };
+  const handleLogout = () => window._auth.signOut();
 
   // Loading splash
   if (!authChecked) return (
@@ -501,7 +592,7 @@ function App() {
   );
 
   // Auth gate
-  if (!user) return <AuthScreen onAuth={u => setUser(u)} />;
+  if (!user) return <AuthScreen />;
 
   // Avatar initials
   const initials = (user.name || user.email).split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
