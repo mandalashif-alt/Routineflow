@@ -78,13 +78,12 @@
       });
     }
 
-    // Service Worker registration
+    // Service Worker — cache + notification support
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE = 'routineflow-v1';
-        const ASSETS = [self.location.href];
+        const CACHE = 'routineflow-v2';
         self.addEventListener('install', e => e.waitUntil(
-          caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
+          caches.open(CACHE).then(c => c.addAll([self.location.href])).then(() => self.skipWaiting())
         ));
         self.addEventListener('activate', e => e.waitUntil(
           caches.keys().then(keys => Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
@@ -100,10 +99,30 @@
             }).catch(() => cached))
           );
         });
+        self.addEventListener('notificationclick', e => {
+          e.notification.close();
+          e.waitUntil(clients.matchAll({ type:'window' }).then(cs => {
+            if (cs.length) return cs[0].focus();
+            return clients.openWindow('./');
+          }));
+        });
+        self.addEventListener('message', e => {
+          if (e.data && e.data.type === 'SHOW_NOTIFICATION') {
+            const { title, body, tag } = e.data;
+            self.registration.showNotification(title, {
+              body, tag,
+              icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="%23080810"/><text x="256" y="340" text-anchor="middle" font-family="Arial Black" font-weight="900" font-size="220" fill="%23f97316">RF</text></svg>',
+              vibrate: [200, 100, 200],
+              requireInteraction: false,
+            });
+          }
+        });
       `;
       const swBlob = new Blob([swCode], { type: 'application/javascript' });
       const swUrl  = URL.createObjectURL(swBlob);
-      navigator.serviceWorker.register(swUrl).catch(() => {});
+      navigator.serviceWorker.register(swUrl)
+        .then(reg => { window._swReg = reg; })
+        .catch(() => {});
     }
 
     // ── FIREBASE CONFIG ─────────────────────────────────────────────────────
@@ -273,6 +292,253 @@ function useClock(tz) {
     return () => clearInterval(id);
   }, [tz]);
   return time;
+}
+
+// ─── Notification Engine ──────────────────────────────────────────────────────
+const RFNotify = {
+  _timers: [],
+
+  // Request permission — must be called from user gesture
+  async requestPermission() {
+    if (!('Notification' in window)) return 'unsupported';
+    if (Notification.permission === 'granted') return 'granted';
+    if (Notification.permission === 'denied')  return 'denied';
+    const result = await Notification.requestPermission();
+    return result;
+  },
+
+  // Show a notification — via SW if available, fallback to direct API
+  async show(title, body, tag) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    try {
+      const sw = window._swReg || (navigator.serviceWorker && await navigator.serviceWorker.ready);
+      if (sw && sw.active) {
+        sw.active.postMessage({ type:'SHOW_NOTIFICATION', title, body, tag });
+      } else {
+        new Notification(title, { body, tag, icon: '' });
+      }
+    } catch(e) {
+      try { new Notification(title, { body, tag }); } catch {}
+    }
+  },
+
+  // Clear all scheduled timers
+  clearAll() {
+    this._timers.forEach(id => clearTimeout(id));
+    this._timers = [];
+  },
+
+  // Schedule notifications for today's tasks
+  scheduleTasks(tasks, timezone, settings) {
+    this.clearAll();
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (!settings.enabled) return;
+
+    const now  = new Date();
+    const todayStr = now.toLocaleDateString('en-CA', { timeZone: timezone });
+
+    tasks.forEach(task => {
+      if (!task.startTime) return;
+      const [h, m] = task.startTime.split(':').map(Number);
+
+      // Build a Date for today's task start
+      const taskDate = new Date(todayStr + 'T' + task.startTime + ':00');
+      const taskEndMs = taskDate.getTime() + (task.duration || 30) * 60000;
+      const msUntilStart = taskDate - now;
+      const msUntilEnd   = taskEndMs - now;
+
+      // 5-min warning
+      if (settings.fiveMin && msUntilStart > 5 * 60000) {
+        const id = setTimeout(() => {
+          this.show(
+            `⏰ Starting in 5 minutes`,
+            `${task.name} — ${task.startTime}`,
+            `rf-warn-${task.id}`
+          );
+        }, msUntilStart - 5 * 60000);
+        this._timers.push(id);
+      }
+
+      // At start
+      if (settings.onStart && msUntilStart > 0) {
+        const id = setTimeout(() => {
+          this.show(
+            `▶ Task starting now`,
+            `${task.name}`,
+            `rf-start-${task.id}`
+          );
+        }, msUntilStart);
+        this._timers.push(id);
+      }
+
+      // At end
+      if (settings.onEnd && msUntilEnd > 0) {
+        const id = setTimeout(() => {
+          this.show(
+            `✓ Task complete`,
+            `${task.name} finished`,
+            `rf-end-${task.id}`
+          );
+        }, msUntilEnd);
+        this._timers.push(id);
+      }
+    });
+  }
+};
+
+// ─── Notification Permission Banner ──────────────────────────────────────────
+function NotifBanner({ onGranted, onDismiss }) {
+  const [loading, setLoading] = useState(false);
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+
+  const handleEnable = async () => {
+    setLoading(true);
+    const result = await RFNotify.requestPermission();
+    setLoading(false);
+    if (result === 'granted') onGranted();
+    else if (result === 'denied') onDismiss();
+  };
+
+  if (isIos && !isStandalone) {
+    return (
+      <div style={{ margin:"0 0 14px", background:"#1a1a0a", border:"1px solid #f9731644", borderRadius:10, padding:"13px 16px" }}>
+        <div style={{ fontSize:13, color:"#f97316", fontWeight:600, marginBottom:6 }}>📲 Install app first for notifications</div>
+        <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.6 }}>
+          To receive task notifications on iPhone, first tap <b style={{color:"#fff"}}>Share ↑</b> in Safari → <b style={{color:"#fff"}}>Add to Home Screen</b>, then reopen from your home screen.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ margin:"0 0 14px", background:"#0d1a0d", border:"1px solid #10b98144", borderRadius:10, padding:"13px 16px" }}>
+      <div style={{ fontSize:13, color:"#10b981", fontWeight:600, marginBottom:6 }}>🔔 Enable task notifications</div>
+      <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.6, marginBottom:10 }}>
+        Get notified 5 minutes before tasks start, when they begin, and when they end.
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <button onClick={handleEnable} disabled={loading}
+          style={{ background:"#10b981", border:"none", borderRadius:7, padding:"7px 16px", color:"#fff", fontSize:12, fontFamily:"inherit", cursor:"pointer", fontWeight:600 }}>
+          {loading ? "…" : "Enable Notifications"}
+        </button>
+        <button onClick={onDismiss}
+          style={{ background:"none", border:"1px solid #252540", borderRadius:7, padding:"7px 12px", color:"#6e6e8a", fontSize:12, fontFamily:"inherit", cursor:"pointer" }}>
+          Not now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Notification Settings Panel ─────────────────────────────────────────────
+function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
+  const [testing, setTesting] = useState(false);
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+
+  const Toggle = ({ label, sublabel, value, onToggle, disabled }) => (
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 0", borderBottom:"1px solid #181830", opacity:disabled?0.4:1 }}>
+      <div>
+        <div style={{ fontSize:13, color:"#e8e6f0" }}>{label}</div>
+        {sublabel && <div style={{ fontSize:11, color:"#6e6e8a", marginTop:2 }}>{sublabel}</div>}
+      </div>
+      <div onClick={disabled ? null : onToggle}
+        style={{ width:44, height:26, borderRadius:13, background:value?"#10b981":"#252540", position:"relative", cursor:disabled?"not-allowed":"pointer", transition:"background 0.2s", flexShrink:0 }}>
+        <div style={{ position:"absolute", top:3, left:value?20:3, width:20, height:20, borderRadius:"50%", background:"#fff", transition:"left 0.2s", boxShadow:"0 1px 4px rgba(0,0,0,.5)" }} />
+      </div>
+    </div>
+  );
+
+  const handleTest = async () => {
+    setTesting(true);
+    await RFNotify.show("🔔 RoutineFlow test", "Notifications are working correctly!", "rf-test");
+    setTimeout(() => setTesting(false), 2000);
+  };
+
+  // Next scheduled task
+  const now = new Date();
+  const todayStr = now.toLocaleDateString('en-CA', { timeZone: timezone });
+  const upcoming = (tasks || [])
+    .filter(t => t.startTime && taskAppliesToDate(t, todayStr))
+    .map(t => {
+      const [h, m] = t.startTime.split(':').map(Number);
+      const ms = new Date(todayStr + 'T' + t.startTime + ':00') - now;
+      return { ...t, ms };
+    })
+    .filter(t => t.ms > 0)
+    .sort((a, b) => a.ms - b.ms)[0];
+
+  const fmtCountdown = ms => {
+    const totalMins = Math.ceil(ms / 60000);
+    if (totalMins < 60) return `${totalMins}m`;
+    return `${Math.floor(totalMins/60)}h ${totalMins%60}m`;
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", zIndex:1000, display:"flex", alignItems:"flex-end" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ width:"100%", background:"#0e0e1d", borderRadius:"18px 18px 0 0", padding:"20px 18px 32px", maxHeight:"85vh", overflowY:"auto" }}>
+
+        {/* Header */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:700, color:"#fff" }}>🔔 Notifications</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#6e6e8a", fontSize:20, cursor:"pointer", padding:4, lineHeight:1 }}>✕</button>
+        </div>
+
+        {/* Next task chip */}
+        {upcoming && settings.enabled && (
+          <div style={{ background:"#0d1a0d", border:"1px solid #10b98133", borderRadius:8, padding:"9px 13px", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:18 }}>⏰</span>
+            <div>
+              <div style={{ fontSize:12, color:"#10b981", fontWeight:600 }}>Next alert in {fmtCountdown(upcoming.ms)}</div>
+              <div style={{ fontSize:11, color:"#6e6e8a", marginTop:1 }}>{upcoming.name} — {fmt12(upcoming.startTime)}</div>
+            </div>
+          </div>
+        )}
+
+        {/* iOS install warning */}
+        {isIos && !isStandalone && (
+          <div style={{ background:"#1a1208", border:"1px solid #f9731644", borderRadius:8, padding:"10px 13px", marginBottom:14 }}>
+            <div style={{ fontSize:12, color:"#f97316", fontWeight:600, marginBottom:4 }}>📲 Install app to receive notifications</div>
+            <div style={{ fontSize:11, color:"#a0a0bc", lineHeight:1.6 }}>
+              Tap <b style={{color:"#fff"}}>Share ↑</b> in Safari → <b style={{color:"#fff"}}>Add to Home Screen</b> → reopen app from home screen, then grant permission.
+            </div>
+          </div>
+        )}
+
+        {/* Toggles */}
+        <Toggle label="Notifications enabled" sublabel="Master switch for all task alerts"
+          value={settings.enabled} onToggle={() => onChange({...settings, enabled:!settings.enabled})} />
+        <Toggle label="5-minute warning" sublabel="Get alerted 5 mins before a task starts"
+          value={settings.fiveMin} onToggle={() => onChange({...settings, fiveMin:!settings.fiveMin})}
+          disabled={!settings.enabled} />
+        <Toggle label="Task starts" sublabel="Alert exactly when a task begins"
+          value={settings.onStart} onToggle={() => onChange({...settings, onStart:!settings.onStart})}
+          disabled={!settings.enabled} />
+        <Toggle label="Task ends" sublabel="Alert when a task's duration is complete"
+          value={settings.onEnd} onToggle={() => onChange({...settings, onEnd:!settings.onEnd})}
+          disabled={!settings.enabled} />
+
+        {/* Test + Save buttons */}
+        <div style={{ display:"flex", gap:8, marginTop:18 }}>
+          <button onClick={handleTest}
+            style={{ flex:1, background:"#131328", border:"1px solid #252545", borderRadius:9, padding:"11px", color:"#a0a0bc", fontSize:12, fontFamily:"inherit", cursor:"pointer", fontWeight:500 }}>
+            {testing ? "✓ Sent!" : "🔔 Test notification"}
+          </button>
+          <button onClick={onClose}
+            style={{ flex:2, background:"#f97316", border:"none", borderRadius:9, padding:"11px", color:"#fff", fontSize:13, fontFamily:"inherit", cursor:"pointer", fontWeight:600 }}>
+            Done
+          </button>
+        </div>
+
+        <div style={{ marginTop:14, fontSize:10, color:"#525270", lineHeight:1.7, textAlign:"center" }}>
+          Notifications fire at task start times using your device clock.<br/>
+          {isIos ? "iPhone requires iOS 16.4+ and app installed to Home Screen." : "Works in all browsers that support the Notifications API."}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── Auth Screen (Firebase) ───────────────────────────────────────────────────
@@ -481,7 +747,40 @@ function App() {
   const [authChecked,  setAuthChecked]  = useState(false);
   const clock = useClock(timezone);
 
-  const [syncReady, setSyncReady] = useState(false); // only true after first Firestore load
+  const [syncReady, setSyncReady] = useState(false);
+
+  // ── Notification state ───────────────────────────────────────────────────────
+  const defaultNotifSettings = { enabled:true, fiveMin:true, onStart:true, onEnd:false };
+  const [notifPermission,  setNotifPermission]  = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const [notifSettings,    setNotifSettings]    = useState(() => {
+    try { return JSON.parse(localStorage.getItem('rf_notif_settings')) || defaultNotifSettings; } catch { return defaultNotifSettings; }
+  });
+  const [showNotifBanner,  setShowNotifBanner]  = useState(false);
+  const [showNotifPanel,   setShowNotifPanel]   = useState(false);
+
+  // Show permission banner after login if not yet decided
+  useEffect(() => {
+    if (user && notifPermission === 'default') {
+      const dismissed = localStorage.getItem('rf_notif_dismissed');
+      if (!dismissed) setTimeout(() => setShowNotifBanner(true), 2000);
+    }
+  }, [user]);
+
+  // Save settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('rf_notif_settings', JSON.stringify(notifSettings));
+  }, [notifSettings]);
+
+  // tkey must be defined before the scheduling useEffect below
+  const tkey = todayKey(timezone);
+
+  // Re-schedule whenever tasks, timezone or settings change
+  useEffect(() => {
+    if (!user || !syncReady) return;
+    const todayTasks2 = tasks.filter(t => taskAppliesToDate(t, tkey));
+    RFNotify.scheduleTasks(todayTasks2, timezone, notifSettings);
+    return () => RFNotify.clearAll();
+  }, [tasks, timezone, notifSettings, user, syncReady]);
 
   // ── Firebase Auth state listener ────────────────────────────────────────────
   useEffect(() => {
@@ -534,8 +833,6 @@ function App() {
   useEffect(() => { if (syncReady && user) store.set("rf_goals", goals);    }, [goals,    syncReady, user]);
   useEffect(() => { if (syncReady && user) store.set("rf_tz",    timezone); }, [timezone, syncReady, user]);
 
-  const tkey        = todayKey(timezone);
-  // viewKey is the date we're currently viewing (defaults to today)
   const viewKey     = selectedDate || tkey;
 
   const viewTasks   = tasks.filter(t => taskAppliesToDate(t, viewKey)).sort((a,b) => (a.startTime||"00:00").localeCompare(b.startTime||"00:00"));
@@ -672,7 +969,7 @@ function App() {
             </div>
           </div>
 
-          {/* Controls — Avatar · SYNC · OUT */}
+          {/* Controls — Avatar · Bell · SYNC · OUT */}
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
 
             {/* Avatar circle */}
@@ -680,6 +977,13 @@ function App() {
               style={{ width:30, height:30, borderRadius:"50%", background:"linear-gradient(135deg,#f97316,#f43f5e)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0, letterSpacing:".5px" }}>
               {initials}
             </div>
+
+            {/* Bell — notification toggle */}
+            <button onClick={() => notifPermission==='granted' ? setShowNotifPanel(true) : setShowNotifBanner(true)}
+              title="Notification settings"
+              style={{ flexShrink:0, background: notifPermission==='granted' && notifSettings.enabled ? "#10b98114":"#1a1a2e", border:`1px solid ${notifPermission==='granted' && notifSettings.enabled ? "#10b98155":"#252545"}`, borderRadius:7, padding:"4px 8px", cursor:"pointer", fontSize:15, transition:"all 0.2s" }}>
+              {notifPermission==='granted' && notifSettings.enabled ? "🔔" : "🔕"}
+            </button>
 
             {/* SYNC — tappable cloud reload */}
             <button
@@ -769,6 +1073,33 @@ function App() {
 
       {/* Backdrop to close TZ dropdown */}
       {tzOpen && <div style={{ position:"fixed", inset:0, zIndex:399 }} onClick={() => setTzOpen(false)} />}
+
+      {/* Notification permission banner */}
+      {showNotifBanner && notifPermission !== 'granted' && (
+        <div style={{ maxWidth:720, margin:"12px auto 0", padding:"0 15px" }}>
+          <NotifBanner
+            onGranted={() => {
+              setNotifPermission('granted');
+              setShowNotifBanner(false);
+            }}
+            onDismiss={() => {
+              setShowNotifBanner(false);
+              localStorage.setItem('rf_notif_dismissed', '1');
+            }}
+          />
+        </div>
+      )}
+
+      {/* Notification settings panel */}
+      {showNotifPanel && (
+        <NotifSettings
+          settings={notifSettings}
+          onChange={s => setNotifSettings(s)}
+          onClose={() => setShowNotifPanel(false)}
+          tasks={tasks}
+          timezone={timezone}
+        />
+      )}
 
       {/* ── Tabs ── */}
       <div style={{ display:"flex", borderBottom:"1px solid #181830", background:"#0b0b18", padding:"0 18px", overflowX:"auto" }}>
