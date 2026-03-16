@@ -481,29 +481,40 @@ function App() {
   const [authChecked,  setAuthChecked]  = useState(false);
   const clock = useClock(timezone);
 
+  const [syncReady, setSyncReady] = useState(false); // only true after first Firestore load
+
   // ── Firebase Auth state listener ────────────────────────────────────────────
   useEffect(() => {
     const unsubscribe = window._auth.onAuthStateChanged(async (fbUser) => {
+      setSyncReady(false); // block saves during load
       if (fbUser) {
         const displayName = fbUser.displayName || fbUser.email.split("@")[0];
         setUser({ name: displayName, email: fbUser.email, uid: fbUser.uid });
-        // Init store with this user's UID so all reads/writes go to their Firestore doc
         store.setUid(fbUser.uid);
+
         // Load all user data from Firestore
-        const [t, l, g, tz] = await Promise.all([
-          store.get("rf_tasks"),
-          store.get("rf_logs"),
-          store.get("rf_goals"),
-          store.get("rf_tz"),
-        ]);
+        let t, l, g, tz;
+        try {
+          [t, l, g, tz] = await Promise.all([
+            store.get("rf_tasks"),
+            store.get("rf_logs"),
+            store.get("rf_goals"),
+            store.get("rf_tz"),
+          ]);
+        } catch(e) {
+          console.warn("Firestore read failed:", e);
+        }
+
+        // Only update state if Firestore returned data
+        // This prevents DEFAULT_TASKS from overwriting real data on a new device
         if (t)  setTasks(t);
         if (l)  setLogs(l);
         if (g)  setGoals(g);
         if (tz) setTimezone(tz);
+
       } else {
         setUser(null);
         store.setUid(null);
-        // Reset to defaults on logout
         setTasks(DEFAULT_TASKS);
         setLogs({});
         setGoals([]);
@@ -511,15 +522,17 @@ function App() {
       }
       setLoaded(true);
       setAuthChecked(true);
+      // Allow saves only AFTER initial load is complete
+      setTimeout(() => setSyncReady(true), 500);
     });
     return () => unsubscribe();
   }, []);
 
-  // ── Sync data to Firestore whenever it changes ───────────────────────────────
-  useEffect(() => { if (loaded && user) store.set("rf_tasks", tasks);    }, [tasks,    loaded, user]);
-  useEffect(() => { if (loaded && user) store.set("rf_logs",  logs);     }, [logs,     loaded, user]);
-  useEffect(() => { if (loaded && user) store.set("rf_goals", goals);    }, [goals,    loaded, user]);
-  useEffect(() => { if (loaded && user) store.set("rf_tz",    timezone); }, [timezone, loaded, user]);
+  // ── Sync data to Firestore — only after initial load confirmed ───────────────
+  useEffect(() => { if (syncReady && user) store.set("rf_tasks", tasks);    }, [tasks,    syncReady, user]);
+  useEffect(() => { if (syncReady && user) store.set("rf_logs",  logs);     }, [logs,     syncReady, user]);
+  useEffect(() => { if (syncReady && user) store.set("rf_goals", goals);    }, [goals,    syncReady, user]);
+  useEffect(() => { if (syncReady && user) store.set("rf_tz",    timezone); }, [timezone, syncReady, user]);
 
   const tkey        = todayKey(timezone);
   // viewKey is the date we're currently viewing (defaults to today)
@@ -698,12 +711,15 @@ function App() {
 
           <div style={{ width:1, height:30, background:"#181830" }} />
 
-          {/* User avatar + logout */}
+          {/* User avatar + sync status + logout */}
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <div title={user.email} style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,#f97316,#f43f5e)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color:"#fff", cursor:"default", flexShrink:0 }}>
               {initials}
             </div>
-            <div style={{ display:"none" }}>{user.name}</div>
+            {syncReady
+              ? <div title="Data synced to cloud" style={{ fontSize:9, color:"#10b981", letterSpacing:".5px" }}>☁ SYNCED</div>
+              : <div title="Loading your data..." style={{ fontSize:9, color:"#f97316", letterSpacing:".5px" }}>↻ LOADING</div>
+            }
             <button onClick={handleLogout} title="Sign out"
               style={{ background:"none", border:"1px solid #252540", borderRadius:6, padding:"4px 9px", color:"#6e6e8a", fontSize:10, fontFamily:"inherit", cursor:"pointer", letterSpacing:".5px", transition:"all 0.15s" }}
               onMouseEnter={e=>{e.target.style.color="#f43f5e";e.target.style.borderColor="#f43f5e44";}}
