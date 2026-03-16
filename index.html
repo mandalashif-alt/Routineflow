@@ -955,55 +955,71 @@ function TodayView({ tasks, allTasks, viewLog, viewKey, todayKey, selectedDate, 
 
           return (
             <div key={task.id} className="task-row"
-              style={{ display:"flex", alignItems:"center", gap:11, background:done?"#0c0c1c":"#0e0e1d", border:`1px solid ${isActive&&!done?task.color+"70":done?task.color+"28":isFuture?"#1a2035":"#181830"}`, borderRadius:10, padding:"13px 14px", cursor:"pointer", position:"relative", overflow:"hidden" }}
+              style={{ background:done?"#0c0c1c":"#0e0e1d", border:`1px solid ${isActive&&!done?task.color+"70":done?task.color+"28":isFuture?"#1a2035":"#181830"}`, borderRadius:10, padding:"11px 12px", cursor:"pointer", position:"relative", overflow:"hidden" }}
               onClick={() => toggleTask(task.id, viewKey)}>
 
               {isActive && !done && <div className="shimmer-bar" style={{ position:"absolute", inset:0, pointerEvents:"none", opacity:.06 }} />}
               {isActive && !done && <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:`linear-gradient(90deg,transparent,${task.color},transparent)` }} />}
               {done && <div style={{ position:"absolute", inset:0, background:task.color+"06", pointerEvents:"none" }} />}
 
-              {/* Checkbox */}
-              <div style={{ width:24, height:24, borderRadius:6, border:`2px solid ${done?task.color:isFuture?"#1e2a4a":"#6e6e8a"}`, background:done?task.color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.18s", color:"#fff" }}>
-                {done && <Icon name="check" size={12} />}
-              </div>
+              {/* ── Row 1: Checkbox · Accent · Name · Actions ── */}
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
 
-              {/* Color accent */}
-              <div style={{ width:3, height:30, background:task.color, borderRadius:2, flexShrink:0, opacity:done?0.35:1 }} />
+                {/* Checkbox */}
+                <div style={{ width:22, height:22, borderRadius:6, border:`2px solid ${done?task.color:isFuture?"#1e2a4a":"#6e6e8a"}`, background:done?task.color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.18s", color:"#fff" }}>
+                  {done && <Icon name="check" size={11} />}
+                </div>
 
-              {/* Info */}
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:14, color:done?"#a0a0bc":"#e8e6f0", textDecoration:done?"line-through":"none", transition:"all 0.18s", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                {/* Color accent */}
+                <div style={{ width:3, height:26, background:task.color, borderRadius:2, flexShrink:0, opacity:done?0.35:1 }} />
+
+                {/* Task name — truncated */}
+                <div style={{ flex:1, minWidth:0, fontSize:14, color:done?"#a0a0bc":"#e8e6f0", textDecoration:done?"line-through":"none", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
                   {task.name}
                   {isActive && !done && <span className="now-pill">NOW</span>}
                 </div>
-                <div style={{ fontSize:11, color:"#6e6e8a", marginTop:3, display:"flex", alignItems:"center", gap:9, flexWrap:"wrap" }}>
-                  {task.startTime && (
-                    <span style={{ color:"#b0b0c8", display:"flex", alignItems:"center", gap:4 }}>
-                      <Icon name="clock" size={10} /> {fmt12(task.startTime)}
-                      <span style={{ color:"#6e6e8a" }}>–{fmt12(endTime(task.startTime,task.duration))}</span>
-                    </span>
-                  )}
-                  <span>{task.category}</span>
-                  <span style={{ display:"flex", alignItems:"center", gap:3, color:"#6e6e8a" }}>
-                    <Icon name="repeat" size={10} /> {repeatLabel(task.repeat)}
-                  </span>
-                  {task.linkedMilestone?.goalId && (() => {
-                    const g = goals?.find(x => x.id === task.linkedMilestone.goalId);
-                    const m = g?.milestones?.find(x => x.id === task.linkedMilestone.milestoneId);
-                    return g ? (
-                      <span style={{ display:"flex", alignItems:"center", gap:3, background:"#f9731618", color:"#f97316", padding:"2px 7px", borderRadius:4, fontSize:10 }}>
-                        <Icon name="flag" size={9} /> {g.name}{m ? ` · ${m.name}` : ""}
-                      </span>
-                    ) : null;
-                  })()}
+
+                {/* Duration chip + Edit + Delete — always visible, never hidden */}
+                <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                  <span style={{ background:"#13132a", padding:"2px 7px", borderRadius:4, fontSize:10, color:"#b0b0c8", whiteSpace:"nowrap" }}>{fmtMins(task.duration)}</span>
+                  <button
+                    onClick={e => { e.stopPropagation(); onEditTask(task); }}
+                    style={{ background:"#13132a", border:"1px solid #232348", borderRadius:6, cursor:"pointer", color:"#a0a0bc", padding:"4px 6px", display:"flex", alignItems:"center", flexShrink:0, transition:"all 0.15s" }}
+                    onMouseEnter={e=>e.currentTarget.style.color="#f97316"}
+                    onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}>
+                    <Icon name="edit" size={12} />
+                  </button>
+                  <button
+                    onClick={e => { e.stopPropagation(); onDeleteTask(task.id); }}
+                    style={{ background:"#13132a", border:"1px solid #232348", borderRadius:6, cursor:"pointer", color:"#a0a0bc", padding:"4px 6px", display:"flex", alignItems:"center", flexShrink:0, transition:"all 0.15s" }}
+                    onMouseEnter={e=>e.currentTarget.style.color="#f43f5e"}
+                    onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}>
+                    <Icon name="trash" size={12} />
+                  </button>
                 </div>
               </div>
 
-              {/* Duration + actions */}
-              <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
-                <span style={{ background:"#13132a", padding:"3px 8px", borderRadius:4, fontSize:11, color:"#b0b0c8" }}>{fmtMins(task.duration)}</span>
-                <button onClick={e => { e.stopPropagation(); onEditTask(task); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:4, display:"flex" }}><Icon name="edit" size={13} /></button>
-                <button onClick={e => { e.stopPropagation(); onDeleteTask(task.id); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:4, display:"flex" }}><Icon name="trash" size={13} /></button>
+              {/* ── Row 2: Time · Category · Repeat · Goal ── */}
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:6, paddingLeft:32, flexWrap:"wrap" }}>
+                {task.startTime && (
+                  <span style={{ color:"#b0b0c8", display:"flex", alignItems:"center", gap:3, fontSize:11 }}>
+                    <Icon name="clock" size={9} /> {fmt12(task.startTime)}
+                    <span style={{ color:"#6e6e8a" }}>–{fmt12(endTime(task.startTime,task.duration))}</span>
+                  </span>
+                )}
+                <span style={{ fontSize:11, color:"#6e6e8a" }}>{task.category}</span>
+                <span style={{ display:"flex", alignItems:"center", gap:3, color:"#6e6e8a", fontSize:11 }}>
+                  <Icon name="repeat" size={9} /> {repeatLabel(task.repeat)}
+                </span>
+                {task.linkedMilestone?.goalId && (() => {
+                  const g = goals?.find(x => x.id === task.linkedMilestone.goalId);
+                  const m = g?.milestones?.find(x => x.id === task.linkedMilestone.milestoneId);
+                  return g ? (
+                    <span style={{ display:"flex", alignItems:"center", gap:3, background:"#f9731618", color:"#f97316", padding:"2px 6px", borderRadius:4, fontSize:10 }}>
+                      <Icon name="flag" size={9} /> {g.name}{m ? ` · ${m.name}` : ""}
+                    </span>
+                  ) : null;
+                })()}
               </div>
             </div>
           );
