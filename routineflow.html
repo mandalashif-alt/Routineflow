@@ -1,0 +1,2007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="RoutineFlow" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#080810" />
+  <meta name="description" content="Build your best day, every day." />
+  <title>RoutineFlow</title>
+
+  <!-- PWA Manifest (inline) -->
+  <link rel="manifest" href="data:application/json,{
+    %22name%22:%22RoutineFlow%22,
+    %22short_name%22:%22RoutineFlow%22,
+    %22description%22:%22Build your best day, every day%22,
+    %22start_url%22:%22.%22,
+    %22display%22:%22standalone%22,
+    %22background_color%22:%22%23080810%22,
+    %22theme_color%22:%22%23080810%22,
+    %22orientation%22:%22portrait%22,
+    %22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%23080810'/%3E%3Ctext x='256' y='340' text-anchor='middle' font-family='Arial Black' font-weight='900' font-size='220' fill='%23f97316'%3ERF%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22512x512%22,%22type%22:%22image/svg+xml%22,%22purpose%22:%22any maskable%22}]
+  }" />
+
+  <!-- iOS home screen icon -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23080810'/><text x='256' y='340' text-anchor='middle' font-family='Arial Black' font-weight='900' font-size='220' fill='%23f97316'>RF</text></svg>" />
+
+  <!-- CDN: React + Babel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #080810; overflow-x: hidden; }
+    body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    #root { min-height: 100vh; }
+    /* iOS tap highlight remove */
+    * { -webkit-tap-highlight-color: transparent; }
+    input, button, select, textarea { font-family: 'DM Mono', monospace !important; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- PWA Install Banner (iOS) -->
+  <div id="ios-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#0e0e1d;border-top:1px solid #f97316;padding:14px 18px;z-index:9999;font-family:'DM Mono',monospace;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12;">
+      <div>
+        <div style="font-size:13px;color:#fff;font-weight:500;">Add to Home Screen</div>
+        <div style="font-size:11px;color:#a0a0bc;margin-top:3px;">Tap <b>Share</b> → <b>Add to Home Screen</b> for the full app experience</div>
+      </div>
+      <button onclick="document.getElementById('ios-banner').style.display='none'"
+        style="background:none;border:1px solid #525270;border-radius:6px;padding:6px 12px;color:#a0a0bc;font-size:11px;cursor:pointer;white-space:nowrap;font-family:inherit;">
+        Got it
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Show iOS install banner if not already installed
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone;
+    const bannerDismissed = localStorage.getItem('rf_banner_dismissed');
+    if (isIos && !isStandalone && !bannerDismissed) {
+      setTimeout(() => {
+        document.getElementById('ios-banner').style.display = 'block';
+      }, 3000);
+      document.querySelector('#ios-banner button').addEventListener('click', () => {
+        localStorage.setItem('rf_banner_dismissed', '1');
+      });
+    }
+
+    // Service Worker registration
+    if ('serviceWorker' in navigator) {
+      const swCode = `
+        const CACHE = 'routineflow-v1';
+        const ASSETS = [self.location.href];
+        self.addEventListener('install', e => e.waitUntil(
+          caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
+        ));
+        self.addEventListener('activate', e => e.waitUntil(
+          caches.keys().then(keys => Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
+            .then(() => self.clients.claim())
+        ));
+        self.addEventListener('fetch', e => {
+          if (e.request.method !== 'GET') return;
+          e.respondWith(
+            caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+              const clone = res.clone();
+              caches.open(CACHE).then(c => c.put(e.request, clone));
+              return res;
+            }).catch(() => cached))
+          );
+        });
+      `;
+      const swBlob = new Blob([swCode], { type: 'application/javascript' });
+      const swUrl  = URL.createObjectURL(swBlob);
+      navigator.serviceWorker.register(swUrl).catch(() => {});
+    }
+  </script>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useCallback } = React;
+
+// ─── Storage ──────────────────────────────────────────────────────────────────
+const store = {
+  async get(key) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; } },
+  async set(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+};
+
+// ─── Timezones ────────────────────────────────────────────────────────────────
+const TIMEZONES = [
+  { label:"UTC",           tz:"UTC" },
+  { label:"Berlin (CET)",  tz:"Europe/Berlin" },
+  { label:"London",        tz:"Europe/London" },
+  { label:"Paris",         tz:"Europe/Paris" },
+  { label:"Moscow",        tz:"Europe/Moscow" },
+  { label:"Dubai",         tz:"Asia/Dubai" },
+  { label:"Kolkata",       tz:"Asia/Kolkata" },
+  { label:"Bangkok",       tz:"Asia/Bangkok" },
+  { label:"Singapore",     tz:"Asia/Singapore" },
+  { label:"Tokyo",         tz:"Asia/Tokyo" },
+  { label:"Sydney",        tz:"Australia/Sydney" },
+  { label:"New York",      tz:"America/New_York" },
+  { label:"Chicago",       tz:"America/Chicago" },
+  { label:"Denver",        tz:"America/Denver" },
+  { label:"Los Angeles",   tz:"America/Los_Angeles" },
+  { label:"São Paulo",     tz:"America/Sao_Paulo" },
+];
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+const todayKey = (tz) => new Date().toLocaleDateString("en-CA", { timeZone: tz });
+const fmtDate  = d => new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" });
+const fmtMins  = m => m >= 60 ? `${Math.floor(m/60)}h${m%60>0?" "+(m%60)+"m":""}` : `${m}m`;
+const COLORS   = ["#f97316","#3b82f6","#10b981","#a855f7","#f43f5e","#eab308","#06b6d4","#84cc16"];
+const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MONTH_DATES = Array.from({length:31},(_,i)=>i+1);
+
+// ─── Time Helpers ─────────────────────────────────────────────────────────────
+const t2m      = t => { const [h,m]=(t||"00:00").split(":").map(Number); return h*60+m; };
+const addMins  = (t,m) => { const tot=(t2m(t)+m+1440)%1440; return `${String(Math.floor(tot/60)).padStart(2,"0")}:${String(tot%60).padStart(2,"0")}`; };
+const fmt12    = t => { if(!t)return""; const [h,m]=t.split(":").map(Number); return `${h%12||12}:${String(m).padStart(2,"0")} ${h>=12?"PM":"AM"}`; };
+const endTime  = (start,dur) => addMins(start,dur);
+
+// Auto-cascade: after any task change, push subsequent tasks that would overlap
+const resolveOverlaps = tasks => {
+  const s = [...tasks].sort((a,b) => t2m(a.startTime||"00:00") - t2m(b.startTime||"00:00"));
+  for (let i = 0; i < s.length - 1; i++) {
+    const end = t2m(s[i].startTime||"00:00") + s[i].duration;
+    if (end > t2m(s[i+1].startTime||"00:00"))
+      s[i+1] = { ...s[i+1], startTime: addMins(s[i].startTime||"00:00", s[i].duration) };
+  }
+  return tasks.map(t => s.find(x => x.id===t.id) || t);
+};
+
+const taskAppliesToDate = (task, dateStr) => {
+  if (!task.repeat || task.repeat.type === "daily") return true;
+  const d = new Date(dateStr + "T12:00:00");
+  if (task.repeat.type === "weekdays")   return task.repeat.days?.includes(d.getDay()) ?? false;
+  if (task.repeat.type === "monthDates") return task.repeat.dates?.includes(d.getDate()) ?? false;
+  return true;
+};
+
+const ordinal = n => `${n}${["st","nd","rd"][((n%100-20||n%100)%10)-1]||"th"}`;
+
+// ─── Default Tasks ────────────────────────────────────────────────────────────
+const DEFAULT_TASKS = [
+  { id:"t1", name:"Morning Exercise", duration:30, startTime:"07:00", color:"#f97316", category:"Health",   repeat:{ type:"weekdays",   days:[1,2,3,4,5] } },
+  { id:"t2", name:"Deep Work Block",  duration:90, startTime:"09:00", color:"#3b82f6", category:"Work",     repeat:{ type:"daily" } },
+  { id:"t3", name:"Reading",          duration:30, startTime:"21:00", color:"#10b981", category:"Learning", repeat:{ type:"daily" } },
+];
+
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+const Icon = ({ name, size=16 }) => {
+  const p = { width:size, height:size, viewBox:"0 0 24 24", fill:"none", stroke:"currentColor", strokeWidth:"2" };
+  const icons = {
+    plus:     <svg {...p} strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+    check:    <svg {...p} strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>,
+    trash:    <svg {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>,
+    target:   <svg {...p}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+    chart:    <svg {...p}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+    calendar: <svg {...p}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+    list:     <svg {...p}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+    flame:    <svg {...p}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>,
+    close:    <svg {...p} strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+    clock:    <svg {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+    globe:    <svg {...p}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
+    repeat:   <svg {...p}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>,
+    edit:      <svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+    chev:      <svg {...p} strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>,
+    chevup:    <svg {...p} strokeWidth="2.5"><polyline points="18 15 12 9 6 15"/></svg>,
+    milestone: <svg {...p}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
+    link:      <svg {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
+    flag:      <svg {...p}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>,
+  };
+  return icons[name] || null;
+};
+
+// ─── Live Clock ───────────────────────────────────────────────────────────────
+function useClock(tz) {
+  const [time, setTime] = useState("");
+  useEffect(() => {
+    const tick = () => setTime(new Date().toLocaleTimeString("en-GB", { timeZone:tz, hour:"2-digit", minute:"2-digit", second:"2-digit" }));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [tz]);
+  return time;
+}
+
+// ─── Simple hash (for storing passwords locally) ──────────────────────────────
+const hashStr = async s => {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+};
+
+// ─── Auth Screen ──────────────────────────────────────────────────────────────
+function AuthScreen({ onAuth }) {
+  const [mode,    setMode]    = useState("login"); // "login" | "signup"
+  const [name,    setName]    = useState("");
+  const [email,   setEmail]   = useState("");
+  const [pass,    setPass]    = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error,   setError]   = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPw,  setShowPw]  = useState(false);
+
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const handleSubmit = async () => {
+    setError("");
+    if (!emailValid)          return setError("Please enter a valid email address.");
+    if (pass.length < 6)      return setError("Password must be at least 6 characters.");
+    if (mode === "signup") {
+      if (!name.trim())       return setError("Please enter your name.");
+      if (pass !== confirm)   return setError("Passwords do not match.");
+    }
+    setLoading(true);
+    try {
+      const hash = await hashStr(pass);
+      if (mode === "signup") {
+        const existing = await store.get("rf_user_" + email.toLowerCase());
+        if (existing)         { setError("An account with this email already exists. Please sign in."); setLoading(false); return; }
+        const user = { name: name.trim(), email: email.toLowerCase(), hash };
+        await store.set("rf_user_" + email.toLowerCase(), user);
+        await store.set("rf_session", { email: email.toLowerCase(), name: name.trim() });
+        onAuth({ name: name.trim(), email: email.toLowerCase() });
+      } else {
+        const user = await store.get("rf_user_" + email.toLowerCase());
+        if (!user)            { setError("No account found with this email. Please sign up."); setLoading(false); return; }
+        if (user.hash !== hash) { setError("Incorrect password. Please try again."); setLoading(false); return; }
+        await store.set("rf_session", { email: user.email, name: user.name });
+        onAuth({ name: user.name, email: user.email });
+      }
+    } catch (e) { setError("Something went wrong. Please try again."); }
+    setLoading(false);
+  };
+
+  const handleGoogleNote = () => {
+    setError("Google Sign-In requires a Google Cloud OAuth setup with a registered Client ID. For now, please use email & password to get started.");
+  };
+
+  const inputStyle = {
+    width:"100%", background:"#0f0f1e", border:"1px solid #242444", borderRadius:9,
+    padding:"13px 15px", color:"#fff", fontSize:14, fontFamily:"'DM Mono',monospace",
+    outline:"none", boxSizing:"border-box", transition:"border-color 0.2s"
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#080810", display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"'DM Mono',monospace" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@300;400;500&display=swap');
+        .auth-input:focus { border-color:#f97316!important; }
+        .auth-btn-google:hover { background:#1a1a2e!important; border-color:#4a4a6a!important; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+        .auth-card { animation: fadeUp 0.45s ease; }
+      `}</style>
+
+      <div className="auth-card" style={{ width:"100%", maxWidth:420 }}>
+        {/* Logo */}
+        <div style={{ textAlign:"center", marginBottom:36 }}>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:26, fontWeight:800, letterSpacing:"-0.5px", color:"#fff", marginBottom:6 }}>ROUTINEFLOW</div>
+          <div style={{ fontSize:11, color:"#6e6e8a", letterSpacing:"2px", textTransform:"uppercase" }}>Build your best day, every day</div>
+        </div>
+
+        {/* Card */}
+        <div style={{ background:"#0e0e1d", border:"1px solid #1e1e38", borderRadius:16, padding:"32px 28px" }}>
+          {/* Mode toggle */}
+          <div style={{ display:"flex", background:"#0a0a18", borderRadius:10, padding:4, marginBottom:28, border:"1px solid #1a1a30" }}>
+            {["login","signup"].map(m => (
+              <button key={m} onClick={() => { setMode(m); setError(""); }}
+                style={{ flex:1, padding:"9px", border:"none", borderRadius:7, cursor:"pointer", fontFamily:"inherit", fontSize:12, letterSpacing:"1px", textTransform:"uppercase", fontWeight:500, background:mode===m?"#f97316":"transparent", color:mode===m?"#fff":"#6e6e8a", transition:"all 0.2s" }}>
+                {m === "login" ? "Sign In" : "Sign Up"}
+              </button>
+            ))}
+          </div>
+
+          {/* Google button */}
+          <button className="auth-btn-google" onClick={handleGoogleNote}
+            style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"#111122", border:"1px solid #2a2a40", borderRadius:9, padding:"12px 16px", color:"#e8e6f0", fontSize:13, fontFamily:"inherit", cursor:"pointer", marginBottom:20, transition:"all 0.2s" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Continue with Google
+            <span style={{ fontSize:10, color:"#525270", marginLeft:2 }}>↗</span>
+          </button>
+
+          {/* Divider */}
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+            <div style={{ flex:1, height:1, background:"#1a1a30" }} />
+            <span style={{ fontSize:11, color:"#525270", letterSpacing:"1px" }}>OR</span>
+            <div style={{ flex:1, height:1, background:"#1a1a30" }} />
+          </div>
+
+          {/* Fields */}
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            {mode === "signup" && (
+              <div>
+                <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Full Name</div>
+                <input className="auth-input" style={inputStyle} type="text" placeholder="Your name"
+                  value={name} onChange={e => setName(e.target.value)}
+                  onKeyDown={e => e.key==="Enter" && handleSubmit()} />
+              </div>
+            )}
+
+            <div>
+              <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Email</div>
+              <input className="auth-input" style={inputStyle} type="email" placeholder="you@example.com"
+                value={email} onChange={e => setEmail(e.target.value)}
+                onKeyDown={e => e.key==="Enter" && handleSubmit()} />
+            </div>
+
+            <div>
+              <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Password</div>
+              <div style={{ position:"relative" }}>
+                <input className="auth-input" style={inputStyle} type={showPw?"text":"password"} placeholder="Min. 6 characters"
+                  value={pass} onChange={e => setPass(e.target.value)}
+                  onKeyDown={e => e.key==="Enter" && handleSubmit()} />
+                <button onClick={() => setShowPw(o=>!o)}
+                  style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#6e6e8a", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>
+                  {showPw ? "HIDE" : "SHOW"}
+                </button>
+              </div>
+            </div>
+
+            {mode === "signup" && (
+              <div>
+                <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Confirm Password</div>
+                <input className="auth-input" style={inputStyle} type={showPw?"text":"password"} placeholder="Repeat password"
+                  value={confirm} onChange={e => setConfirm(e.target.value)}
+                  onKeyDown={e => e.key==="Enter" && handleSubmit()} />
+              </div>
+            )}
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:8, padding:"10px 13px", marginTop:14, fontSize:12, color:"#f87090", lineHeight:1.5 }}>
+              {error}
+            </div>
+          )}
+
+          {/* Submit */}
+          <button onClick={handleSubmit} disabled={loading}
+            style={{ width:"100%", marginTop:18, padding:"13px", background: loading?"#7a3a10":"#f97316", border:"none", borderRadius:9, color:"#fff", fontSize:13, fontFamily:"inherit", fontWeight:500, letterSpacing:"1px", cursor: loading?"not-allowed":"pointer", transition:"background 0.2s", textTransform:"uppercase" }}>
+            {loading ? "Please wait…" : mode === "login" ? "Sign In →" : "Create Account →"}
+          </button>
+
+          {/* Switch mode hint */}
+          <div style={{ textAlign:"center", marginTop:18, fontSize:12, color:"#6e6e8a" }}>
+            {mode === "login"
+              ? <>Don't have an account? <span onClick={() => { setMode("signup"); setError(""); }} style={{ color:"#f97316", cursor:"pointer" }}>Sign up free</span></>
+              : <>Already have an account? <span onClick={() => { setMode("login"); setError(""); }} style={{ color:"#f97316", cursor:"pointer" }}>Sign in</span></>
+            }
+          </div>
+        </div>
+
+        <div style={{ textAlign:"center", marginTop:20, fontSize:10, color:"#525270", lineHeight:1.7 }}>
+          Your data is stored locally on this device.<br/>No account info is sent to any server.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── App Root ─────────────────────────────────────────────────────────────────
+function App() {
+  const [tab,          setTab]          = useState("today");
+  const [tasks,        setTasks]        = useState(DEFAULT_TASKS);
+  const [logs,         setLogs]         = useState({});
+  const [goals,        setGoals]        = useState([]);
+  const [timezone,     setTimezone]     = useState("Europe/Berlin");
+  const [modal,        setModal]        = useState(null);
+  const [editTask,     setEditTask]     = useState(null);
+  const [loaded,       setLoaded]       = useState(false);
+  const [tzOpen,       setTzOpen]       = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [user,         setUser]         = useState(null);   // { name, email } | null
+  const [authChecked,  setAuthChecked]  = useState(false);  // true once session lookup done
+  const clock = useClock(timezone);
+
+  useEffect(() => {
+    (async () => {
+      const session = await store.get("rf_session");
+      if (session) setUser(session);
+      setAuthChecked(true);
+      const t  = await store.get("rf_tasks");
+      const l  = await store.get("rf_logs");
+      const g  = await store.get("rf_goals");
+      const tz = await store.get("rf_tz");
+      if (t)  setTasks(t);
+      if (l)  setLogs(l);
+      if (g)  setGoals(g);
+      if (tz) setTimezone(tz);
+      setLoaded(true);
+    })();
+  }, []);
+
+  useEffect(() => { if (loaded) store.set("rf_tasks", tasks);    }, [tasks,    loaded]);
+  useEffect(() => { if (loaded) store.set("rf_logs",  logs);     }, [logs,     loaded]);
+  useEffect(() => { if (loaded) store.set("rf_goals", goals);    }, [goals,    loaded]);
+  useEffect(() => { if (loaded) store.set("rf_tz",    timezone); }, [timezone, loaded]);
+
+  const tkey        = todayKey(timezone);
+  // viewKey is the date we're currently viewing (defaults to today)
+  const viewKey     = selectedDate || tkey;
+
+  const viewTasks   = tasks.filter(t => taskAppliesToDate(t, viewKey)).sort((a,b) => (a.startTime||"00:00").localeCompare(b.startTime||"00:00"));
+  const viewLog     = logs[viewKey] || {};
+  const completedToday = viewTasks.filter(t => viewLog[t.id]).length;
+  const totalToday     = viewTasks.length;
+  const pct            = totalToday ? Math.round((completedToday / totalToday) * 100) : 0;
+
+  // Today's real stats for header streak/pct (always today, not viewKey)
+  const todayTasks     = tasks.filter(t => taskAppliesToDate(t, tkey));
+  const todayLog       = logs[tkey] || {};
+  const todayPct       = todayTasks.length ? Math.round(todayTasks.filter(t=>todayLog[t.id]).length / todayTasks.length * 100) : 0;
+
+  const toggleTask = useCallback((taskId, dateKey) => {
+    const task  = tasks.find(t => t.id === taskId);
+    const dkey  = dateKey || tkey;
+    const wasOn = !!(logs[dkey]?.[taskId]);
+    const nowOn = !wasOn;
+
+    setLogs(prev => ({ ...prev, [dkey]: { ...(prev[dkey]||{}), [taskId]: nowOn } }));
+
+    // Only update milestone if toggling on today's date (avoids double-counting)
+    if (dkey === tkey && task?.linkedMilestone?.goalId && task?.linkedMilestone?.milestoneId) {
+      const { goalId, milestoneId } = task.linkedMilestone;
+      setGoals(prev => prev.map(g => {
+        if (g.id !== goalId) return g;
+        const milestones = (g.milestones || []).map(m =>
+          m.id === milestoneId ? { ...m, done: nowOn } : m
+        );
+        return { ...g, milestones, current: milestones.filter(m => m.done).length };
+      }));
+    }
+  }, [tkey, tasks, logs]);
+
+  const streak = (() => {
+    let s = 0;
+    const d = new Date();
+    for (let i = 0; i < 366; i++) {
+      const key        = d.toLocaleDateString("en-CA", { timeZone: timezone });
+      const applicable = tasks.filter(t => taskAppliesToDate(t, key));
+      const done       = applicable.filter(t => (logs[key]||{})[t.id]).length;
+      if (done === 0 && key !== tkey) break;
+      if (done > 0) s++;
+      d.setDate(d.getDate() - 1);
+    }
+    return s;
+  })();
+
+  const tzLabel = TIMEZONES.find(t => t.tz === timezone)?.label || timezone;
+  const tabs = [
+    { id:"today",   label:"Schedule",  icon:"list"     },
+    { id:"history", label:"Calendar", icon:"calendar" },
+    { id:"stats",   label:"Stats",    icon:"chart"    },
+    { id:"goals",   label:"Goals",    icon:"target"   },
+  ];
+
+  const handleLogout = async () => {
+    await store.set("rf_session", null);
+    setUser(null);
+  };
+
+  // Loading splash
+  if (!authChecked) return (
+    <div style={{ minHeight:"100vh", background:"#080810", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Mono',monospace" }}>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontSize:22, fontWeight:800, color:"#fff", marginBottom:8 }}>ROUTINEFLOW</div>
+        <div style={{ fontSize:11, color:"#525270", letterSpacing:"2px" }}>LOADING…</div>
+      </div>
+    </div>
+  );
+
+  // Auth gate
+  if (!user) return <AuthScreen onAuth={u => setUser(u)} />;
+
+  // Avatar initials
+  const initials = (user.name || user.email).split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
+
+  return (
+    <div style={{ fontFamily:"'DM Mono','Courier New',monospace", background:"#080810", minHeight:"100vh", color:"#e8e6f0" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        ::-webkit-scrollbar{width:4px}
+        ::-webkit-scrollbar-track{background:#080810}
+        ::-webkit-scrollbar-thumb{background:#232340;border-radius:2px}
+        .task-row{transition:background 0.18s}
+        .task-row:hover{background:#0e0e20!important}
+        .tab-btn{transition:color 0.18s,border-color 0.18s}
+        .tab-btn:hover{color:#fff!important}
+        .btn-glow:hover{box-shadow:0 0 18px rgba(249,115,22,0.35)}
+        .day-cell{transition:transform 0.13s;cursor:pointer}
+        .day-cell:hover{transform:scale(1.1)}
+        input,select,textarea{font-family:'DM Mono',monospace!important}
+        .progress-bar{transition:width 1s cubic-bezier(0.4,0,0.2,1)}
+        .fade-in{animation:fadeIn 0.28s ease}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+        .tz-drop{position:absolute;top:calc(100% + 6px);right:0;background:#0c0c1a;border:1px solid #242444;border-radius:10px;padding:6px;z-index:400;min-width:195px;max-height:270px;overflow-y:auto;box-shadow:0 10px 36px rgba(0,0,0,0.55)}
+        .tz-item{padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:#c0bdd8;transition:background 0.13s,color 0.13s;display:flex;justify-content:space-between;align-items:center}
+        .tz-item:hover{background:#1a1a30;color:#fff}
+        .tz-item.sel{background:#f97316;color:#fff;font-weight:500}
+        .chip{padding:5px 11px;border-radius:20px;border:1px solid #2a2a48;font-size:11px;cursor:pointer;transition:all 0.13s;background:transparent;color:#b0b0c8;font-family:'DM Mono',monospace;letter-spacing:.5px}
+        .chip.on{background:#f97316;border-color:#f97316;color:#fff}
+        .chip:hover:not(.on){border-color:#f97316;color:#f97316}
+        .dchip{width:32px;height:32px;border-radius:6px;border:1px solid #2a2a48;font-size:11px;cursor:pointer;transition:all 0.13s;background:transparent;color:#b0b0c8;font-family:'DM Mono',monospace;display:flex;align-items:center;justify-content:center}
+        .dchip.on{background:#f97316;border-color:#f97316;color:#fff}
+        .dchip:hover:not(.on){border-color:#f97316;color:#f97316}
+        .now-pill{display:inline-flex;align-items:center;margin-left:8px;font-size:10px;color:#f97316;background:#f9731622;padding:2px 7px;border-radius:3px;letter-spacing:.8px;animation:pulse 2s ease-in-out infinite}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+        .shimmer-bar{background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);background-size:200% 100%;animation:shimmer 1.8s infinite}
+        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .ms-row{transition:background 0.15s;border-radius:8px}
+        .ms-row:hover{background:#12122a!important}
+        .ms-done{text-decoration:line-through;color:#a0a0bc!important}
+        .goal-card{transition:border-color 0.2s}
+        .link-option{padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#c0bdd8;transition:background 0.13s}
+        .link-option:hover{background:#1a1a30}
+        .link-option.sel{background:#f9731620;color:#f97316;border:1px solid #f9731640}
+        .overdue-badge{display:inline-flex;align-items:center;gap:3px;background:#f43f5e22;color:#f43f5e;border:1px solid #f43f5e44;border-radius:4px;padding:2px 7px;font-size:9px;letter-spacing:1px;text-transform:uppercase;font-weight:500}
+        .ms-overdue{border-color:#f43f5e44!important;background:#120a0a!important}
+        .ms-progress-track{background:#13132a;border-radius:3px;height:4px;overflow:hidden;margin-top:7px}
+        .heat-cell{border-radius:4px;transition:transform 0.1s;cursor:default}
+        .heat-cell:hover{transform:scale(1.15)}
+      `}</style>
+
+      {/* ── Header ── */}
+      <div style={{ borderBottom:"1px solid #181830", padding:"14px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", background:"#0b0b18", flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:20, fontWeight:800, letterSpacing:"-0.5px", color:"#fff" }}>ROUTINEFLOW</div>
+          <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"1.8px", textTransform:"uppercase", marginTop:2 }}>
+            {new Date().toLocaleDateString("en-GB",{ timeZone:timezone, weekday:"long", day:"numeric", month:"long" })}
+          </div>
+        </div>
+
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          {/* Clock + TZ selector */}
+          <div style={{ position:"relative" }}>
+            <button onClick={() => setTzOpen(o => !o)}
+              style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", background:"#0f0f1e", border:"1px solid #1e1e38", borderRadius:8, padding:"8px 13px", outline:"none", color:"inherit", fontFamily:"inherit" }}>
+              <Icon name="clock" size={13} />
+              <span style={{ fontSize:14, fontWeight:500, color:"#fff", letterSpacing:"1.5px", fontVariantNumeric:"tabular-nums" }}>{clock}</span>
+              <span style={{ fontSize:10, color:"#b0b0c8", marginLeft:2 }}>{tzLabel}</span>
+              <Icon name="chev" size={11} />
+            </button>
+
+            {tzOpen && (
+              <div className="tz-drop">
+                <div style={{ fontSize:9, color:"#a0a0bc", letterSpacing:"2px", padding:"4px 12px 8px", textTransform:"uppercase" }}>Timezone</div>
+                {TIMEZONES.map(t => (
+                  <div key={t.tz} className={`tz-item${timezone===t.tz?" sel":""}`}
+                    onClick={() => { setTimezone(t.tz); setTzOpen(false); }}>
+                    <span>{t.label}</span>
+                    <span style={{ fontSize:10, opacity:.65, fontVariantNumeric:"tabular-nums" }}>
+                      {new Date().toLocaleTimeString("en-GB",{ timeZone:t.tz, hour:"2-digit", minute:"2-digit" })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ width:1, height:30, background:"#181830" }} />
+
+          <div style={{ textAlign:"center" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:5, color:"#f97316", fontWeight:500, fontSize:14 }}>
+              <Icon name="flame" size={13} /> <span>{streak}</span>
+            </div>
+            <div style={{ fontSize:9, color:"#a0a0bc", letterSpacing:"1px" }}>STREAK</div>
+          </div>
+
+          <div style={{ width:1, height:30, background:"#181830" }} />
+
+          <div style={{ textAlign:"center" }}>
+            <div style={{ color:"#fff", fontWeight:500, fontSize:14 }}>{todayPct}%</div>
+            <div style={{ fontSize:9, color:"#a0a0bc", letterSpacing:"1px" }}>TODAY</div>
+          </div>
+
+          <div style={{ width:1, height:30, background:"#181830" }} />
+
+          {/* User avatar + logout */}
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div title={user.email} style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,#f97316,#f43f5e)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color:"#fff", cursor:"default", flexShrink:0 }}>
+              {initials}
+            </div>
+            <div style={{ display:"none" }}>{user.name}</div>
+            <button onClick={handleLogout} title="Sign out"
+              style={{ background:"none", border:"1px solid #252540", borderRadius:6, padding:"4px 9px", color:"#6e6e8a", fontSize:10, fontFamily:"inherit", cursor:"pointer", letterSpacing:".5px", transition:"all 0.15s" }}
+              onMouseEnter={e=>{e.target.style.color="#f43f5e";e.target.style.borderColor="#f43f5e44";}}
+              onMouseLeave={e=>{e.target.style.color="#6e6e8a";e.target.style.borderColor="#252540";}}>
+              OUT
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Backdrop to close TZ dropdown */}
+      {tzOpen && <div style={{ position:"fixed", inset:0, zIndex:399 }} onClick={() => setTzOpen(false)} />}
+
+      {/* ── Tabs ── */}
+      <div style={{ display:"flex", borderBottom:"1px solid #181830", background:"#0b0b18", padding:"0 18px", overflowX:"auto" }}>
+        {tabs.map(t => (
+          <button key={t.id} className="tab-btn" onClick={() => setTab(t.id)}
+            style={{ padding:"11px 13px", background:"none", border:"none", cursor:"pointer", fontSize:11, letterSpacing:"1px", textTransform:"uppercase", fontFamily:"inherit", display:"flex", alignItems:"center", gap:6, borderBottom:tab===t.id?"2px solid #f97316":"2px solid transparent", color:tab===t.id?"#fff":"#a0a0bc", marginBottom:-1, whiteSpace:"nowrap" }}>
+            <Icon name={t.icon} size={12} /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Main Content ── */}
+      <div style={{ maxWidth:720, margin:"0 auto", padding:"18px 15px" }} className="fade-in" key={tab}>
+        {tab==="today"   && <TodayView tasks={viewTasks} allTasks={tasks} viewLog={viewLog} viewKey={viewKey} todayKey={tkey} selectedDate={selectedDate} setSelectedDate={setSelectedDate} toggleTask={toggleTask} completedToday={completedToday} totalToday={totalToday} pct={pct} onAddTask={() => setModal("task")} onEditTask={t => { setEditTask(t); setModal("task"); }} onDeleteTask={id => setTasks(p => p.filter(t => t.id!==id))} timezone={timezone} goals={goals} />}
+        {tab==="history" && <HistoryView tasks={tasks} logs={logs} timezone={timezone} setSelectedDate={setSelectedDate} setTab={setTab} />}
+        {tab==="stats"   && <StatsView tasks={tasks} logs={logs} timezone={timezone} goals={goals} />}
+        {tab==="goals"   && <GoalsView goals={goals} setGoals={setGoals} onAdd={() => setModal("goal")} />}
+      </div>
+
+      {/* ── Modals ── */}
+      {modal==="task" && (
+        <TaskModal
+          key={editTask?.id || "new"}
+          onClose={() => { setModal(null); setEditTask(null); }}
+          onSave={t => { setTasks(p => resolveOverlaps(editTask ? p.map(x => x.id===editTask.id ? t : x) : [...p, t])); setModal(null); setEditTask(null); }}
+          colorOptions={COLORS}
+          initial={editTask}
+          allTasks={tasks}
+          goals={goals}
+        />
+      )}
+      {modal==="goal" && <GoalModal onClose={() => setModal(null)} onSave={g => { setGoals(p => [...p, g]); setModal(null); }} />}
+    </div>
+  );
+}
+
+// ─── Today View ───────────────────────────────────────────────────────────────
+function TodayView({ tasks, allTasks, viewLog, viewKey, todayKey, selectedDate, setSelectedDate, toggleTask, completedToday, totalToday, pct, onAddTask, onEditTask, onDeleteTask, timezone, goals }) {
+  const doneMins  = tasks.filter(t => viewLog[t.id]).reduce((s,t) => s+t.duration, 0);
+  const totalMins = tasks.reduce((s,t) => s+t.duration, 0);
+
+  const isToday    = viewKey === todayKey;
+  const isFuture   = viewKey > todayKey;
+  const isPast     = viewKey < todayKey;
+
+  // Date navigation helpers
+  const shiftDate = (delta) => {
+    const d = new Date(viewKey + "T00:00:00");
+    d.setDate(d.getDate() + delta);
+    const next = d.toLocaleDateString("en-CA");
+    setSelectedDate(next === todayKey ? null : next);
+  };
+
+  const dateLabel = (() => {
+    if (isToday) return "TODAY";
+    const d = new Date(viewKey + "T00:00:00");
+    const t = new Date(todayKey + "T00:00:00");
+    const diff = Math.round((d - t) / 864e5);
+    if (diff === 1)  return "TOMORROW";
+    if (diff === -1) return "YESTERDAY";
+    return d.toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", year:"numeric" }).toUpperCase();
+  })();
+
+  const fullDateDisplay = (() => {
+    const d = new Date(viewKey + "T00:00:00");
+    return d.toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+  })();
+
+  const fmtTime12 = t => {
+    if (!t) return null;
+    const [h, m] = t.split(":").map(Number);
+    return `${h%12||12}:${String(m).padStart(2,"0")} ${h>=12?"PM":"AM"}`;
+  };
+
+  const repeatLabel = r => {
+    if (!r || r.type==="daily") return "Every day";
+    if (r.type==="weekdays")   return r.days?.length ? r.days.map(d=>WEEKDAYS[d]).join(", ") : "No days";
+    if (r.type==="monthDates") return r.dates?.length ? r.dates.sort((a,b)=>a-b).map(ordinal).join(", ") : "No dates";
+    return "";
+  };
+
+  const nowMins = (() => { const n = new Date(); return n.getHours()*60+n.getMinutes(); })();
+
+  return (
+    <div>
+
+      {/* ── Date Navigator ── */}
+      <div style={{ background:"#0e0e1d", border:"1px solid #181830", borderRadius:12, padding:"12px 16px", marginBottom:14, display:"flex", alignItems:"center", gap:10 }}>
+        {/* Prev */}
+        <button onClick={() => shiftDate(-1)}
+          style={{ background:"#13132a", border:"1px solid #525270", borderRadius:7, padding:"7px 11px", color:"#c0bdd8", cursor:"pointer", display:"flex", alignItems:"center", fontSize:14, flexShrink:0, lineHeight:1 }}>
+          ‹
+        </button>
+
+        {/* Date display + picker */}
+        <div style={{ flex:1, textAlign:"center", position:"relative" }}>
+          <div style={{ fontSize:11, letterSpacing:"2px", color: isFuture?"#3b82f6": isPast?"#b0b0c8":"#f97316", textTransform:"uppercase", fontWeight:600, marginBottom:2 }}>
+            {isFuture && "▸ "}{isPast && "◂ "}{dateLabel}
+          </div>
+          <div style={{ fontSize:12, color:"#a0a0bc" }}>{fullDateDisplay}</div>
+          {/* Invisible date input overlaid for native picker on click */}
+          <input type="date" value={viewKey}
+            onChange={e => {
+              const v = e.target.value;
+              setSelectedDate(v === todayKey ? null : v);
+            }}
+            style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%" }}
+          />
+        </div>
+
+        {/* Next */}
+        <button onClick={() => shiftDate(1)}
+          style={{ background:"#13132a", border:"1px solid #525270", borderRadius:7, padding:"7px 11px", color:"#c0bdd8", cursor:"pointer", display:"flex", alignItems:"center", fontSize:14, flexShrink:0, lineHeight:1 }}>
+          ›
+        </button>
+
+        {/* Jump to today */}
+        {!isToday && (
+          <button onClick={() => setSelectedDate(null)}
+            style={{ background:"#f97316", border:"none", borderRadius:7, padding:"7px 12px", color:"#fff", cursor:"pointer", fontSize:10, letterSpacing:"1px", fontFamily:"inherit", flexShrink:0, whiteSpace:"nowrap" }}>
+            ↩ TODAY
+          </button>
+        )}
+      </div>
+
+      {/* Future / Past banner */}
+      {isFuture && (
+        <div style={{ background:"#0d1a2e", border:"1px solid #3b82f633", borderRadius:9, padding:"9px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:16 }}>📅</span>
+          <div style={{ fontSize:12, color:"#3b82f6" }}>Viewing future schedule — tasks shown are based on their repeat rules. You can pre-check them here.</div>
+        </div>
+      )}
+      {isPast && (
+        <div style={{ background:"#0d0d1c", border:"1px solid #6e6e8a", borderRadius:9, padding:"9px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:16 }}>📜</span>
+          <div style={{ fontSize:12, color:"#b0b0c8" }}>Viewing past schedule — you can retroactively mark tasks as done.</div>
+        </div>
+      )}
+
+      {/* Progress card */}
+      <div style={{ background:"linear-gradient(135deg,#0d0d1e 0%,#0f0f26 100%)", border:`1px solid ${isFuture?"#3b82f630":isPast?"#6e6e8a":"#181830"}`, borderRadius:12, padding:20, marginBottom:18 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:14 }}>
+          <div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:46, fontWeight:800, lineHeight:1, color:pct===100?"#10b981":isFuture?"#3b82f6":"#fff" }}>
+              {pct}<span style={{ fontSize:20, color:"#a0a0bc" }}>%</span>
+            </div>
+            <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"2px", marginTop:4 }}>
+              {completedToday}/{totalToday} TASKS · {fmtMins(doneMins)} / {fmtMins(totalMins)}
+            </div>
+          </div>
+          {pct===100 && <div style={{ background:"#10b98116", border:"1px solid #10b98138", borderRadius:8, padding:"7px 13px", fontSize:11, color:"#10b981", letterSpacing:"1px" }}>✦ COMPLETE</div>}
+          {isFuture && pct===0 && <div style={{ background:"#3b82f610", border:"1px solid #3b82f630", borderRadius:8, padding:"7px 13px", fontSize:11, color:"#3b82f6", letterSpacing:"1px" }}>PLANNED</div>}
+        </div>
+        <div style={{ background:"#13132a", borderRadius:4, height:6, overflow:"hidden" }}>
+          <div className="progress-bar" style={{ height:"100%", width:`${pct}%`, background:pct===100?"#10b981":isFuture?"#3b82f6":"linear-gradient(90deg,#f97316,#f43f5e)", borderRadius:4 }} />
+        </div>
+      </div>
+
+      {/* Day Timeline */}
+      <DayTimeline tasks={tasks} nowMins={isToday ? nowMins : null} />
+
+      {/* Toolbar */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:13 }}>
+        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", textTransform:"uppercase" }}>
+          {isToday ? "Today's" : isFuture ? "Planned" : "Past"} Schedule
+        </div>
+        {isToday && (
+          <button onClick={onAddTask} className="btn-glow"
+            style={{ display:"flex", alignItems:"center", gap:6, background:"#f97316", border:"none", borderRadius:6, padding:"6px 14px", color:"#fff", fontSize:11, fontFamily:"inherit", cursor:"pointer", letterSpacing:"1px" }}>
+            <Icon name="plus" size={12} /> ADD TASK
+          </button>
+        )}
+      </div>
+
+      {tasks.length === 0 && (
+        <div style={{ textAlign:"center", padding:"50px 20px", color:"#525270", fontSize:13 }}>
+          {isFuture ? "No tasks repeat on this day." : isPast ? "No tasks were scheduled on this day." : "No tasks scheduled for today."}
+        </div>
+      )}
+
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {tasks.map(task => {
+          const done     = !!viewLog[task.id];
+          const tMins    = task.startTime ? parseInt(task.startTime)*60 + parseInt(task.startTime.split(":")[1]) : null;
+          const isActive = isToday && tMins!==null && nowMins>=tMins && nowMins<tMins+task.duration;
+
+          return (
+            <div key={task.id} className="task-row"
+              style={{ display:"flex", alignItems:"center", gap:11, background:done?"#0c0c1c":"#0e0e1d", border:`1px solid ${isActive&&!done?task.color+"70":done?task.color+"28":isFuture?"#1a2035":"#181830"}`, borderRadius:10, padding:"13px 14px", cursor:"pointer", position:"relative", overflow:"hidden" }}
+              onClick={() => toggleTask(task.id, viewKey)}>
+
+              {isActive && !done && <div className="shimmer-bar" style={{ position:"absolute", inset:0, pointerEvents:"none", opacity:.06 }} />}
+              {isActive && !done && <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:`linear-gradient(90deg,transparent,${task.color},transparent)` }} />}
+              {done && <div style={{ position:"absolute", inset:0, background:task.color+"06", pointerEvents:"none" }} />}
+
+              {/* Checkbox */}
+              <div style={{ width:24, height:24, borderRadius:6, border:`2px solid ${done?task.color:isFuture?"#1e2a4a":"#6e6e8a"}`, background:done?task.color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.18s", color:"#fff" }}>
+                {done && <Icon name="check" size={12} />}
+              </div>
+
+              {/* Color accent */}
+              <div style={{ width:3, height:30, background:task.color, borderRadius:2, flexShrink:0, opacity:done?0.35:1 }} />
+
+              {/* Info */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:14, color:done?"#a0a0bc":"#e8e6f0", textDecoration:done?"line-through":"none", transition:"all 0.18s", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                  {task.name}
+                  {isActive && !done && <span className="now-pill">NOW</span>}
+                </div>
+                <div style={{ fontSize:11, color:"#6e6e8a", marginTop:3, display:"flex", alignItems:"center", gap:9, flexWrap:"wrap" }}>
+                  {task.startTime && (
+                    <span style={{ color:"#b0b0c8", display:"flex", alignItems:"center", gap:4 }}>
+                      <Icon name="clock" size={10} /> {fmt12(task.startTime)}
+                      <span style={{ color:"#6e6e8a" }}>–{fmt12(endTime(task.startTime,task.duration))}</span>
+                    </span>
+                  )}
+                  <span>{task.category}</span>
+                  <span style={{ display:"flex", alignItems:"center", gap:3, color:"#6e6e8a" }}>
+                    <Icon name="repeat" size={10} /> {repeatLabel(task.repeat)}
+                  </span>
+                  {task.linkedMilestone?.goalId && (() => {
+                    const g = goals?.find(x => x.id === task.linkedMilestone.goalId);
+                    const m = g?.milestones?.find(x => x.id === task.linkedMilestone.milestoneId);
+                    return g ? (
+                      <span style={{ display:"flex", alignItems:"center", gap:3, background:"#f9731618", color:"#f97316", padding:"2px 7px", borderRadius:4, fontSize:10 }}>
+                        <Icon name="flag" size={9} /> {g.name}{m ? ` · ${m.name}` : ""}
+                      </span>
+                    ) : null;
+                  })()}
+                </div>
+              </div>
+
+              {/* Duration + actions (edit/delete only on today view) */}
+              <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
+                <span style={{ background:"#13132a", padding:"3px 8px", borderRadius:4, fontSize:11, color:"#b0b0c8" }}>{fmtMins(task.duration)}</span>
+                {isToday && <>
+                  <button onClick={e => { e.stopPropagation(); onEditTask(task); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:4, display:"flex" }}><Icon name="edit" size={13} /></button>
+                  <button onClick={e => { e.stopPropagation(); onDeleteTask(task.id); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:4, display:"flex" }}><Icon name="trash" size={13} /></button>
+                </>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {isToday && allTasks.length > tasks.length && (
+        <div style={{ marginTop:18, padding:12, background:"#0d0d1c", border:"1px dashed #181830", borderRadius:10 }}>
+          <div style={{ fontSize:11, color:"#6e6e8a" }}>
+            {allTasks.length-tasks.length} task{allTasks.length-tasks.length>1?"s":""} not scheduled for today — edit repeat to include today.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── History View ─────────────────────────────────────────────────────────────
+function HistoryView({ tasks, logs, timezone, setSelectedDate, setTab }) {
+  const now = new Date();
+  const [vy, setVy] = useState(now.getFullYear());
+  const [vm, setVm] = useState(now.getMonth());
+  const [hoveredKey, setHoveredKey] = useState(null);
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const firstDay    = new Date(vy,vm,1).getDay();
+  const daysInMonth = new Date(vy,vm+1,0).getDate();
+  const todayStr    = todayKey(timezone);
+
+  const prevMonth = () => { if(vm===0){setVy(y=>y-1);setVm(11);}else setVm(m=>m-1); };
+  const nextMonth = () => { if(vm===11){setVy(y=>y+1);setVm(0);}else setVm(m=>m+1); };
+
+  const getPct = d => {
+    const key = `${vy}-${String(vm+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const applicable = tasks.filter(t => taskAppliesToDate(t,key));
+    if (!applicable.length) return -1;
+    const done = applicable.filter(t => (logs[key]||{})[t.id]).length;
+    return done/applicable.length;
+  };
+
+  const goToDate = (key) => {
+    setSelectedDate(key === todayStr ? null : key);
+    setTab("today");
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
+        <button onClick={prevMonth} style={{ background:"#13132a", border:"none", color:"#e8e6f0", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontFamily:"inherit", fontSize:13 }}>←</button>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:700 }}>{MONTHS[vm]} {vy}</div>
+        <button onClick={nextMonth} style={{ background:"#13132a", border:"none", color:"#e8e6f0", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontFamily:"inherit", fontSize:13 }}>→</button>
+      </div>
+
+      {/* Click-to-navigate hint */}
+      <div style={{ fontSize:10, color:"#6e6e8a", letterSpacing:"1px", textAlign:"center", marginBottom:10, textTransform:"uppercase" }}>
+        Tap any date to view its schedule →
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:6 }}>
+        {WEEKDAYS.map(d => <div key={d} style={{ textAlign:"center", fontSize:10, color:"#6e6e8a", letterSpacing:".5px" }}>{d}</div>)}
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
+        {Array(firstDay).fill(null).map((_,i) => <div key={"e"+i} />)}
+        {Array(daysInMonth).fill(null).map((_,i) => {
+          const d   = i+1;
+          const pct = getPct(d);
+          const key = `${vy}-${String(vm+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+          const isToday   = key === todayStr;
+          const isHovered = key === hoveredKey;
+          const isFuture  = key > todayStr;
+          const bg = isHovered
+            ? "#f9731640"
+            : pct < 0  ? "#131328"
+            : pct === 0 ? "#131328"
+            : pct < 0.5 ? "#6d28d944"
+            : pct < 1   ? "#f97316"
+            : "#10b981";
+
+          // Task count for tooltip label
+          const applicable = tasks.filter(t => taskAppliesToDate(t, key));
+          const done = applicable.filter(t => (logs[key]||{})[t.id]).length;
+          const taskLabel = applicable.length
+            ? `${done}/${applicable.length} tasks`
+            : isFuture ? "planned" : "no tasks";
+
+          return (
+            <div
+              key={d}
+              onClick={() => goToDate(key)}
+              onMouseEnter={() => setHoveredKey(key)}
+              onMouseLeave={() => setHoveredKey(null)}
+              style={{
+                aspectRatio:"1", borderRadius:8, background:bg,
+                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                fontSize:11, color: isHovered ? "#fff" : pct>0 ? "#fff" : "#525270",
+                border: isToday ? "2px solid #f97316" : isHovered ? "1px solid #f9731680" : "1px solid #181830",
+                fontWeight: isToday ? 700 : 400,
+                cursor:"pointer",
+                transition:"background 0.12s, border 0.12s, transform 0.1s",
+                transform: isHovered ? "scale(1.08)" : "scale(1)",
+                position:"relative",
+              }}
+            >
+              <span>{d}</span>
+              {isHovered && (
+                <span style={{ fontSize:8, color:"rgba(255,255,255,.65)", letterSpacing:".3px", marginTop:2, whiteSpace:"nowrap" }}>
+                  {taskLabel}
+                </span>
+              )}
+              {/* Small arrow indicator on hover */}
+              {isHovered && (
+                <div style={{ position:"absolute", bottom:3, right:4, fontSize:8, color:"#f97316", opacity:.8 }}>→</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display:"flex", gap:14, marginTop:14, flexWrap:"wrap" }}>
+        {[["#131328","0%"],["#6d28d944","1–49%"],["#f97316","50–99%"],["#10b981","100%"]].map(([c,l]) => (
+          <div key={l} style={{ display:"flex", alignItems:"center", gap:6, fontSize:11, color:"#a0a0bc" }}>
+            <div style={{ width:12, height:12, borderRadius:3, background:c, border:"1px solid #525270" }} /> {l}
+          </div>
+        ))}
+      </div>
+
+      {/* Last 7 days bar */}
+      <div style={{ marginTop:26 }}>
+        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", marginBottom:13, textTransform:"uppercase" }}>Last 7 Days</div>
+        {Array(7).fill(null).map((_,i) => {
+          const d   = new Date(); d.setDate(d.getDate()-(6-i));
+          const key = d.toLocaleDateString("en-CA",{timeZone:timezone});
+          const applicable = tasks.filter(t => taskAppliesToDate(t,key));
+          const done  = applicable.filter(t => (logs[key]||{})[t.id]).length;
+          const total = applicable.length;
+          const p     = total ? done/total : 0;
+          return (
+            <div key={key} onClick={() => goToDate(key)}
+              style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8, cursor:"pointer", borderRadius:6, padding:"3px 4px", transition:"background 0.1s" }}
+              onMouseEnter={e => e.currentTarget.style.background="#13132a"}
+              onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+              <div style={{ width:34, fontSize:11, color:"#a0a0bc", textAlign:"right" }}>{WEEKDAYS[d.getDay()]}</div>
+              <div style={{ flex:1, background:"#13132a", borderRadius:4, height:8, overflow:"hidden" }}>
+                <div style={{ height:"100%", width:`${p*100}%`, background:p===1?"#10b981":"#f97316", borderRadius:4, transition:"width 0.7s ease" }} />
+              </div>
+              <div style={{ width:40, fontSize:11, color:"#a0a0bc" }}>{done}/{total}</div>
+              <div style={{ fontSize:10, color:"#f97316", opacity:.6 }}>→</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Category Row (for Stats) ─────────────────────────────────────────────────
+function CategoryRow({ cat, color, rate, catTasks }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginBottom:12 }}>
+      <div onClick={() => setOpen(o=>!o)} style={{ cursor:"pointer" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ width:8, height:8, borderRadius:2, background:color, flexShrink:0 }} />
+            <span style={{ color:"#e8e6f0", fontSize:13, fontWeight:500 }}>{cat}</span>
+            <span style={{ fontSize:10, color:"#6e6e8a" }}>{catTasks.length} task{catTasks.length!==1?"s":""}</span>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ color: rate===100?"#10b981":color, fontWeight:600, fontSize:13 }}>{rate}%</span>
+            <span style={{ color:"#a0a0bc", fontSize:10 }}>{open?"▲":"▼"}</span>
+          </div>
+        </div>
+        <div style={{ background:"#13132a", borderRadius:4, height:8, overflow:"hidden" }}>
+          <div style={{ height:"100%", width:`${rate}%`, background:rate===100?"#10b981":color, borderRadius:4, transition:"width 1s ease", position:"relative", overflow:"hidden" }}>
+            <div style={{ position:"absolute", inset:0, background:"linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent)", backgroundSize:"200% 100%", animation:"shimmer 3s infinite" }} />
+          </div>
+        </div>
+      </div>
+      {open && (
+        <div style={{ marginTop:8, paddingLeft:16, borderLeft:`2px solid ${color}40`, display:"flex", flexDirection:"column", gap:7 }}>
+          {catTasks.map(t => (
+            <div key={t.id}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3, fontSize:11 }}>
+                <span style={{ color:"#9090a8" }}>{t.name}</span>
+                <span style={{ color:t.rate===100?"#10b981":color }}>{t.rate}%</span>
+              </div>
+              <div style={{ background:"#13132a", borderRadius:2, height:4 }}>
+                <div style={{ height:"100%", width:`${t.rate}%`, background:t.rate===100?"#10b981":color, borderRadius:2, opacity:.75, transition:"width 0.8s ease" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Stats View ───────────────────────────────────────────────────────────────
+function StatsView({ tasks, logs, timezone, goals }) {
+  const allDates     = Object.keys(logs).sort();
+  const totalDays    = allDates.length;
+
+  const completeDays = allDates.filter(d => {
+    const ap = tasks.filter(t => taskAppliesToDate(t,d));
+    return ap.length>0 && ap.every(t => logs[d]?.[t.id]);
+  }).length;
+
+  // Imperfect days: had tasks but completed < 50%
+  const imperfectDays = allDates.filter(d => {
+    const ap   = tasks.filter(t => taskAppliesToDate(t,d));
+    const done = ap.filter(t => logs[d]?.[t.id]).length;
+    return ap.length>0 && done>0 && done/ap.length < 0.5;
+  }).length;
+
+  // Missed days: had tasks but completed 0
+  const missedDays = allDates.filter(d => {
+    const ap   = tasks.filter(t => taskAppliesToDate(t,d));
+    const done = ap.filter(t => logs[d]?.[t.id]).length;
+    return ap.length>0 && done===0;
+  }).length;
+
+  // Current streak (consecutive perfect days ending today)
+  const currentStreak = (() => {
+    let s = 0;
+    const d = new Date();
+    for (let i = 0; i < 366; i++) {
+      const key = d.toLocaleDateString("en-CA", { timeZone: timezone });
+      const ap  = tasks.filter(t => taskAppliesToDate(t,key));
+      if (ap.length === 0) { d.setDate(d.getDate()-1); continue; }
+      if (ap.every(t => logs[key]?.[t.id])) { s++; d.setDate(d.getDate()-1); }
+      else break;
+    }
+    return s;
+  })();
+
+  const taskStats = tasks.map(t => {
+    const applicable = allDates.filter(d => taskAppliesToDate(t,d));
+    const done       = applicable.filter(d => logs[d]?.[t.id]).length;
+    return { ...t, rate: applicable.length ? Math.round(done/applicable.length*100) : 0 };
+  });
+
+  // Category-level aggregation
+  const catColors = { Health:"#10b981", Career:"#3b82f6", Learning:"#a855f7", Finance:"#eab308", Personal:"#f43f5e", Creative:"#ec4899", Social:"#06b6d4", Work:"#3b82f6", Other:"#f97316" };
+  const categories = [...new Set(tasks.map(t => t.category||"Other"))].sort();
+  const catStats = categories.map(cat => {
+    const catTasks = taskStats.filter(t => (t.category||"Other") === cat);
+    const avgRate  = catTasks.length ? Math.round(catTasks.reduce((s,t)=>s+t.rate,0)/catTasks.length) : 0;
+    return { cat, color: catColors[cat]||"#f97316", rate: avgRate, tasks: catTasks };
+  });
+
+  const last14 = Array(14).fill(null).map((_,i) => {
+    const d   = new Date(); d.setDate(d.getDate()-(13-i));
+    const key = d.toLocaleDateString("en-CA",{timeZone:timezone});
+    const ap  = tasks.filter(t => taskAppliesToDate(t,key));
+    const done = ap.filter(t => (logs[key]||{})[t.id]).length;
+    return { day:WEEKDAYS[d.getDay()], pct:ap.length?Math.round(done/ap.length*100):0 };
+  });
+
+  const cards = [
+    { label:"PERFECT DAYS",   value:completeDays,   color:"#10b981", sub:"100% tasks done",        icon:"✦" },
+    { label:"IMPERFECT DAYS", value:imperfectDays,  color:"#eab308", sub:"below 50% tasks done",   icon:"◑" },
+    { label:"MISSED DAYS",    value:missedDays,      color:"#f43f5e", sub:"0 tasks completed",      icon:"✕" },
+    { label:"STREAK",         value:currentStreak,  color:"#f97316", sub:"consecutive perfect days",icon:"🔥" },
+  ];
+
+  return (
+    <div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:10, marginBottom:18 }}>
+        {cards.map(c => (
+          <div key={c.label} style={{ background:"#0e0e1d", border:`1px solid ${c.color}22`, borderRadius:10, padding:16, position:"relative", overflow:"hidden" }}>
+            <div style={{ position:"absolute", top:10, right:12, fontSize:18, opacity:.15 }}>{c.icon}</div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:32, fontWeight:800, color:c.color, lineHeight:1 }}>{c.value}</div>
+            <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#b0b0c8", marginTop:5, textTransform:"uppercase" }}>{c.label}</div>
+            <div style={{ fontSize:9, color:"#6e6e8a", marginTop:3, letterSpacing:".3px" }}>{c.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background:"#0e0e1d", border:"1px solid #181830", borderRadius:10, padding:16, marginBottom:12 }}>
+        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", marginBottom:13, textTransform:"uppercase" }}>14-Day Completion %</div>
+        <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:110, paddingBottom:20, position:"relative" }}>
+          {/* Y gridlines */}
+          {[25,50,75,100].map(y => (
+            <div key={y} style={{ position:"absolute", left:0, right:0, bottom: 20 + (y/100)*90, height:1, background:"#1a1a2e", zIndex:0 }} />
+          ))}
+          {last14.map((e,i) => {
+            const barH = Math.max(2, Math.round((e.pct/100)*90));
+            const fill  = e.pct===100?"#10b981":e.pct>0?"#f97316":"#1e1e38";
+            return (
+              <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4, height:"100%", justifyContent:"flex-end", position:"relative", zIndex:1 }}>
+                {e.pct > 0 && (
+                  <div style={{ fontSize:8, color:fill, letterSpacing:".3px", marginBottom:1 }}>{e.pct}%</div>
+                )}
+                <div title={`${e.day}: ${e.pct}%`}
+                  style={{ width:"100%", height:barH, background:fill, borderRadius:"3px 3px 0 0", transition:"height 0.8s ease", cursor:"default" }} />
+                <div style={{ fontSize:9, color:"#525270", marginTop:2, letterSpacing:".3px" }}>{e.day}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ background:"#0e0e1d", border:"1px solid #181830", borderRadius:10, padding:16 }}>
+        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", marginBottom:3, textTransform:"uppercase" }}>Category Consistency</div>
+        <div style={{ fontSize:10, color:"#6e6e8a", marginBottom:14 }}>Tap a category to see individual tasks</div>
+        {catStats.length===0 && <div style={{ color:"#525270", fontSize:13, textAlign:"center", padding:"20px 0" }}>No tasks yet.</div>}
+        {catStats.map(({ cat, color, rate, tasks:catTasks }) => (
+          <CategoryRow key={cat} cat={cat} color={color} rate={rate} catTasks={catTasks} />
+        ))}
+      </div>
+
+      {/* ── Missed Days Heatmap ── */}
+      <div style={{ background:"#0e0e1d", border:"1px solid #181830", borderRadius:10, padding:16, marginTop:12 }}>
+        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", marginBottom:4, textTransform:"uppercase" }}>Missed Days — Last 60 Days</div>
+        <div style={{ fontSize:11, color:"#6e6e8a", marginBottom:13 }}>Each cell = one day. Red = missed tasks, green = completed, dark = no tasks scheduled.</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:3 }}>
+          {Array(60).fill(null).map((_,i) => {
+            const d   = new Date(); d.setDate(d.getDate()-(59-i));
+            const key = d.toLocaleDateString("en-CA",{timeZone:timezone});
+            const ap  = tasks.filter(t => taskAppliesToDate(t,key));
+            const done = ap.filter(t => (logs[key]||{})[t.id]).length;
+            const isFuture = d > new Date();
+            let bg = "#131328", title = fmtDate(key);
+            if (!isFuture && ap.length > 0) {
+              const p = done/ap.length;
+              bg = p === 1 ? "#10b981" : p >= 0.5 ? "#f97316" : p > 0 ? "#c2410c" : "#f43f5e44";
+              title = `${fmtDate(key)}: ${done}/${ap.length} tasks (${Math.round(p*100)}%)`;
+            }
+            const isToday = d.toDateString() === new Date().toDateString();
+            return (
+              <div key={i} className="heat-cell" title={title}
+                style={{ width:16, height:16, borderRadius:3, background:isFuture?"#0d0d1a":bg, border:isToday?"1.5px solid #f97316":"1px solid #0d0d1a", flexShrink:0 }} />
+            );
+          })}
+        </div>
+        <div style={{ display:"flex", gap:14, marginTop:12, flexWrap:"wrap" }}>
+          {[["#10b981","All done"],["#f97316","50–99%"],["#c2410c","1–49%"],["#f43f5e44","0% (missed)"],["#131328","No tasks"]].map(([c,l])=>(
+            <div key={l} style={{ display:"flex", alignItems:"center", gap:5, fontSize:10, color:"#a0a0bc" }}>
+              <div style={{ width:10, height:10, borderRadius:2, background:c, border:"1px solid #525270" }}/> {l}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Overdue Milestones across all goals ── */}
+      {(() => {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const overdueMilestones = (goals||[]).flatMap(g =>
+          (g.milestones||[])
+            .filter(m => !m.done && m.deadline && new Date(m.deadline+"T00:00:00") < today)
+            .map(m => ({ ...m, goalName:g.name, goalColor:(catColors||{})[g.category]||"#f97316", daysOverdue: Math.round((today - new Date(m.deadline+"T00:00:00"))/864e5) }))
+        ).sort((a,b) => b.daysOverdue - a.daysOverdue);
+        const catColors = { Health:"#10b981", Career:"#3b82f6", Learning:"#a855f7", Finance:"#eab308", Personal:"#f43f5e", Other:"#f97316" };
+        if (!overdueMilestones.length) return null;
+        return (
+          <div style={{ background:"#120808", border:"1px solid #f43f5e33", borderRadius:10, padding:16, marginTop:12 }}>
+            <div style={{ fontSize:11, letterSpacing:"2px", color:"#f43f5e", marginBottom:13, textTransform:"uppercase", display:"flex", alignItems:"center", gap:6 }}>
+              ⚡ Overdue Milestones
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {overdueMilestones.map(m => (
+                <div key={m.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:"#1a0a0a", borderRadius:7, padding:"9px 12px", border:"1px solid #f43f5e22" }}>
+                  <div>
+                    <div style={{ fontSize:12, color:"#f87090" }}>{m.name}</div>
+                    <div style={{ fontSize:10, color:"#483030", marginTop:3 }}>
+                      {m.goalName} · due {fmtDate(m.deadline)}
+                    </div>
+                  </div>
+                  <div style={{ background:"#f43f5e22", color:"#f43f5e", border:"1px solid #f43f5e44", borderRadius:5, padding:"3px 9px", fontSize:10, letterSpacing:"1px", flexShrink:0 }}>
+                    {m.daysOverdue}d late
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+// ─── Goals View ───────────────────────────────────────────────────────────────
+function GoalsView({ goals, setGoals, onAdd }) {
+  const catColors = { Health:"#10b981", Career:"#3b82f6", Learning:"#a855f7", Finance:"#eab308", Personal:"#f43f5e", Other:"#f97316" };
+  const [expandedGoal, setExpandedGoal] = useState(null);
+  const [msModal, setMsModal] = useState(null); // goalId when open
+  const [editMs, setEditMs] = useState(null);   // { goalId, milestone } for inline edit
+
+  const addMilestone = (goalId, ms) => {
+    setGoals(prev => prev.map(g => g.id !== goalId ? g : {
+      ...g,
+      milestones: [...(g.milestones||[]), { ...ms, id:"m"+Date.now(), done:false, createdAt: new Date().toISOString().slice(0,10) }],
+      target: (g.milestones||[]).length + 1,
+    }));
+    setMsModal(null);
+  };
+
+  const deleteMilestone = (goalId, msId) => {
+    setGoals(prev => prev.map(g => {
+      if (g.id !== goalId) return g;
+      const milestones = (g.milestones||[]).filter(m => m.id !== msId);
+      return { ...g, milestones, target: Math.max(1, milestones.length), current: milestones.filter(m=>m.done).length };
+    }));
+  };
+
+  const toggleMilestone = (goalId, msId) => {
+    setGoals(prev => prev.map(g => {
+      if (g.id !== goalId) return g;
+      const milestones = (g.milestones||[]).map(m => m.id===msId ? { ...m, done:!m.done } : m);
+      return { ...g, milestones, current: milestones.filter(m=>m.done).length };
+    }));
+  };
+
+  const saveEditMs = (goalId, msId, name, deadline) => {
+    setGoals(prev => prev.map(g => {
+      if (g.id !== goalId) return g;
+      return { ...g, milestones: (g.milestones||[]).map(m => m.id===msId ? { ...m, name, deadline } : m) };
+    }));
+    setEditMs(null);
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
+        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", textTransform:"uppercase" }}>Long-Term Goals</div>
+        <button onClick={onAdd} className="btn-glow"
+          style={{ display:"flex", alignItems:"center", gap:6, background:"#f97316", border:"none", borderRadius:6, padding:"6px 14px", color:"#fff", fontSize:11, fontFamily:"inherit", cursor:"pointer", letterSpacing:"1px" }}>
+          <Icon name="plus" size={12} /> ADD GOAL
+        </button>
+      </div>
+
+      {goals.length===0 && (
+        <div style={{ textAlign:"center", padding:"60px 20px", color:"#525270" }}>
+          <div style={{ fontSize:32, marginBottom:12 }}>◎</div>
+          <div style={{ fontSize:13 }}>Set your first long-term goal</div>
+        </div>
+      )}
+
+      <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        {goals.map(g => {
+          const milestones = g.milestones || [];
+          const hasMilestones = milestones.length > 0;
+          const doneMilestones = milestones.filter(m => m.done).length;
+          const current = hasMilestones ? doneMilestones : g.current;
+          const target  = hasMilestones ? milestones.length : g.target;
+          const pct     = target > 0 ? Math.round((current / target) * 100) : 0;
+          const color   = catColors[g.category] || "#f97316";
+          const isOpen  = expandedGoal === g.id;
+
+          return (
+            <div key={g.id} className="goal-card"
+              style={{ background:"#0e0e1d", border:`1px solid ${isOpen ? color+"44" : "#181830"}`, borderRadius:14, overflow:"hidden" }}>
+
+              {/* ── Goal Header ── */}
+              <div style={{ padding:"16px 18px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+                  <div style={{ flex:1, minWidth:0, marginRight:12 }}>
+                    <div style={{ fontSize:15, fontWeight:500, color:"#fff", marginBottom:5 }}>{g.name}</div>
+                    <div style={{ fontSize:11, color:"#a0a0bc", display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+                      <span style={{ background:color+"1a", color, padding:"2px 8px", borderRadius:4, fontSize:10, letterSpacing:"1px" }}>{g.category}</span>
+                      {g.deadline && <span>Due: {fmtDate(g.deadline)}</span>}
+                      {hasMilestones && (
+                        <span style={{ color:"#b0b0c8", display:"flex", alignItems:"center", gap:3 }}>
+                          <Icon name="milestone" size={10} /> {doneMilestones}/{milestones.length} milestones
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontSize:22, fontWeight:800, color }}>{pct}%</div>
+                    <button onClick={() => setExpandedGoal(isOpen ? null : g.id)}
+                      style={{ background:"#13132a", border:"1px solid #525270", borderRadius:6, cursor:"pointer", color:"#c0bdd8", padding:"5px 7px", display:"flex" }}>
+                      <Icon name={isOpen ? "chevup" : "chev"} size={12} />
+                    </button>
+                    <button onClick={() => setGoals(p=>p.filter(x=>x.id!==g.id))} style={{ background:"none", border:"none", cursor:"pointer", color:"#525270", padding:4, display:"flex" }}><Icon name="trash" size={13} /></button>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div style={{ background:"#13132a", borderRadius:4, height:7, overflow:"hidden", marginBottom: hasMilestones ? 6 : 12 }}>
+                  <div style={{ height:"100%", width:`${Math.min(100,pct)}%`, background:pct===100?"#10b981":color, borderRadius:4, transition:"width 0.8s" }} />
+                </div>
+
+                {/* Milestone progress chips */}
+                {hasMilestones && (
+                  <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:8 }}>
+                    {milestones.map(m => (
+                      <div key={m.id} title={m.name}
+                        style={{ width:16, height:16, borderRadius:3, background: m.done ? color : "#1e1e38", border:`1px solid ${m.done ? color : "#6e6e8a"}`, cursor:"pointer", transition:"all 0.15s" }}
+                        onClick={() => toggleMilestone(g.id, m.id)} />
+                    ))}
+                  </div>
+                )}
+
+                {/* Manual counter (only when no milestones) */}
+                {!hasMilestones && (
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <span style={{ fontSize:11, color:"#a0a0bc" }}>{g.unit}:</span>
+                    <input type="number" value={g.current}
+                      onChange={e => setGoals(p=>p.map(x=>x.id===g.id?{...x,current:Math.min(x.target,Math.max(0,Number(e.target.value)))}:x))}
+                      style={{ width:80, background:"#13132a", border:"1px solid #525270", borderRadius:5, padding:"4px 8px", color:"#fff", fontSize:12, outline:"none" }} />
+                    <span style={{ fontSize:11, color:"#a0a0bc" }}>/ {g.target} {g.unit}</span>
+                  </div>
+                )}
+
+                {g.notes && <div style={{ marginTop:10, fontSize:12, color:"#a0a0bc", borderLeft:`3px solid ${color}`, paddingLeft:10, lineHeight:1.6 }}>{g.notes}</div>}
+              </div>
+
+              {/* ── Milestones Panel ── */}
+              {isOpen && (
+                <div style={{ borderTop:"1px solid #181830", padding:"14px 18px", background:"#0b0b18" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+                    <div style={{ fontSize:10, letterSpacing:"2px", color:"#a0a0bc", textTransform:"uppercase", display:"flex", alignItems:"center", gap:6 }}>
+                      <Icon name="milestone" size={11} /> Milestones
+                    </div>
+                    <button onClick={() => setMsModal(g.id)}
+                      style={{ display:"flex", alignItems:"center", gap:5, background:"#13132a", border:"1px solid #525270", borderRadius:6, padding:"5px 11px", color:"#c0bdd8", fontSize:11, fontFamily:"inherit", cursor:"pointer" }}>
+                      <Icon name="plus" size={11} /> Add
+                    </button>
+                  </div>
+
+                  {milestones.length === 0 && (
+                    <div style={{ fontSize:12, color:"#525270", textAlign:"center", padding:"16px 0" }}>No milestones yet. Add one to break this goal into steps.</div>
+                  )}
+
+                  {/* ── Missed overview banner ── */}
+                  {(() => {
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const overdue = milestones.filter(m => !m.done && m.deadline && new Date(m.deadline+"T00:00:00") < today);
+                    if (!overdue.length) return null;
+                    return (
+                      <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:8, padding:"9px 13px", marginBottom:12, display:"flex", alignItems:"center", gap:8 }}>
+                        <span style={{ fontSize:18 }}>⚠</span>
+                        <div>
+                          <div style={{ fontSize:12, color:"#f43f5e", fontWeight:500 }}>{overdue.length} milestone{overdue.length>1?"s":""} overdue</div>
+                          <div style={{ fontSize:11, color:"#843040", marginTop:2 }}>{overdue.map(m=>m.name).join(" · ")}</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── Timeline track (if any have deadlines) ── */}
+                  {milestones.some(m => m.deadline) && (() => {
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const sorted = [...milestones].filter(m=>m.deadline).sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
+                    const earliest = new Date(sorted[0].deadline+"T00:00:00");
+                    const latest   = new Date(sorted[sorted.length-1].deadline+"T00:00:00");
+                    const refStart = new Date(Math.min(today.getTime(), earliest.getTime()));
+                    refStart.setDate(refStart.getDate()-7);
+                    const refEnd   = new Date(latest); refEnd.setDate(refEnd.getDate()+7);
+                    const span     = refEnd - refStart;
+                    const pctOf    = d => Math.max(0,Math.min(100,(new Date(d+"T00:00:00")-refStart)/span*100));
+                    const nowPct   = Math.max(0,Math.min(100,(today-refStart)/span*100));
+                    return (
+                      <div style={{ background:"#0d0d1c", border:"1px solid #181830", borderRadius:8, padding:"12px 14px", marginBottom:14 }}>
+                        <div style={{ fontSize:9, letterSpacing:"1.5px", color:"#6e6e8a", marginBottom:10, textTransform:"uppercase" }}>Deadline Timeline</div>
+                        <div style={{ position:"relative", height:28, background:"#13132a", borderRadius:5 }}>
+                          {/* today line */}
+                          <div style={{ position:"absolute", left:`${nowPct}%`, top:0, bottom:0, width:2, background:"#ffffff30", zIndex:2 }}>
+                            <div style={{ position:"absolute", top:-1, left:-3, width:8, height:8, borderRadius:"50%", background:"#fff", opacity:.4 }}/>
+                          </div>
+                          {sorted.map(m => {
+                            const isOverdue = !m.done && new Date(m.deadline+"T00:00:00") < today;
+                            const dotColor  = m.done ? "#10b981" : isOverdue ? "#f43f5e" : color;
+                            return (
+                              <div key={m.id} title={`${m.name} — ${fmtDate(m.deadline)}`}
+                                style={{ position:"absolute", left:`${pctOf(m.deadline)}%`, top:"50%", transform:"translate(-50%,-50%)", width:14, height:14, borderRadius:"50%", background:dotColor, border:`2px solid ${dotColor}55`, zIndex:3, cursor:"default" }} />
+                            );
+                          })}
+                        </div>
+                        <div style={{ display:"flex", justifyContent:"space-between", marginTop:5 }}>
+                          <span style={{ fontSize:9, color:"#6e6e8a" }}>{refStart.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>
+                          <span style={{ fontSize:9, color:"#b0b0c8" }}>TODAY</span>
+                          <span style={{ fontSize:9, color:"#6e6e8a" }}>{refEnd.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── Milestone rows ── */}
+                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                    {milestones.map(m => {
+                      const isEditing = editMs?.goalId === g.id && editMs?.milestone?.id === m.id;
+                      const today = new Date(); today.setHours(0,0,0,0);
+
+                      // Deadline metadata — for labels/badges only, NOT for bar fill
+                      let daysLeft = null, isOverdue = false;
+                      if (m.deadline) {
+                        const dl = new Date(m.deadline+"T00:00:00");
+                        isOverdue = !m.done && dl < today;
+                        daysLeft  = Math.round((dl - today) / 864e5);
+                      }
+
+                      // ── Completion bar: 0% = not done, 100% = done ──
+                      // The bar ONLY fills when the user ticks the milestone/task.
+                      const completionPct = m.done ? 100 : 0;
+                      const barColor      = m.done ? "#10b981" : isOverdue ? "#f43f5e" : color;
+
+                      // Deadline urgency level (used for segment coloring & label only)
+                      const urgencyLevel = !m.deadline || m.done ? null
+                        : isOverdue ? "overdue"
+                        : daysLeft <= 7  ? "final"
+                        : daysLeft <= 21 ? "late"
+                        : daysLeft <= 60 ? "mid"
+                        : "early";
+
+                      return (
+                        <div key={m.id} className={`ms-row${isOverdue?" ms-overdue":""}`}
+                          style={{ padding:"10px 12px", background: isOverdue?"#120a0a":"#0e0e1d", border:`1px solid ${isOverdue?"#f43f5e33":m.done?"#1e3a1e":"#1a1a30"}`, borderRadius:9 }}>
+
+                          {isEditing ? (
+                            <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                              <div onClick={() => toggleMilestone(g.id, m.id)}
+                                style={{ width:18, height:18, borderRadius:4, border:`2px solid ${m.done?color:"#6e6e8a"}`, background:m.done?color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>
+                                {m.done && <Icon name="check" size={10} />}
+                              </div>
+                              <InlineMsEdit
+                                initial={m}
+                                onSave={(name, deadline) => saveEditMs(g.id, m.id, name, deadline)}
+                                onCancel={() => setEditMs(null)}
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              {/* Top row: checkbox + name + badges + actions */}
+                              <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+                                <div onClick={() => toggleMilestone(g.id, m.id)}
+                                  style={{ width:18, height:18, borderRadius:4, border:`2px solid ${m.done?color:isOverdue?"#f43f5e":"#6e6e8a"}`, background:m.done?color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0, marginTop:1, transition:"all 0.15s" }}>
+                                  {m.done && <Icon name="check" size={10} />}
+                                </div>
+                                <div style={{ flex:1, minWidth:0 }}>
+                                  <div style={{ display:"flex", alignItems:"center", gap:7, flexWrap:"wrap" }}>
+                                    <span style={{ fontSize:13, color:m.done?"#a0a0bc":isOverdue?"#f87090":"#d8d6e8", textDecoration:m.done?"line-through":"none", transition:"color 0.15s" }}>{m.name}</span>
+                                    {isOverdue && <span className="overdue-badge">⚡ {Math.abs(daysLeft)}d overdue</span>}
+                                    {m.done && <span style={{ fontSize:9, color:"#10b981", letterSpacing:"1px", textTransform:"uppercase", background:"#10b98118", padding:"2px 6px", borderRadius:3 }}>✓ completed</span>}
+                                  </div>
+                                  {m.deadline && (
+                                    <div style={{ fontSize:10, marginTop:3, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                                      <span style={{ color:"#6e6e8a", display:"flex", alignItems:"center", gap:3 }}>
+                                        <Icon name="calendar" size={9}/> {fmtDate(m.deadline)}
+                                      </span>
+                                      {!m.done && !isOverdue && daysLeft !== null && (
+                                        <span style={{ color: daysLeft <= 7 ? "#f97316" : daysLeft <= 21 ? "#eab308" : "#a0a0bc" }}>
+                                          {daysLeft === 0 ? "due today" : `${daysLeft}d left`}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <div style={{ display:"flex", gap:4, flexShrink:0, alignItems:"flex-start" }}>
+                                  <button onClick={() => setEditMs({ goalId:g.id, milestone:m })}
+                                    style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:3, display:"flex" }}><Icon name="edit" size={12} /></button>
+                                  <button onClick={() => deleteMilestone(g.id, m.id)}
+                                    style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:3, display:"flex" }}><Icon name="trash" size={12} /></button>
+                                </div>
+                              </div>
+
+                              {/* ── Completion progress bar (task-driven only) ── */}
+                              <div style={{ marginTop:9 }}>
+                                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5 }}>
+                                  <span style={{ fontSize:9, color:"#6e6e8a", letterSpacing:"1px", textTransform:"uppercase" }}>
+                                    {m.done ? "Completed" : "Completion"}
+                                  </span>
+                                  <span style={{ fontSize:9, color: barColor, letterSpacing:".5px", fontWeight:500 }}>
+                                    {m.done ? "✓ 100%" : "0% — tick the task to complete"}
+                                  </span>
+                                </div>
+
+                                {/* Single progress bar — only fills on task completion */}
+                                <div className="ms-progress-track" style={{ position:"relative" }}>
+                                  <div style={{
+                                    height:"100%",
+                                    width:`${completionPct}%`,
+                                    background: barColor,
+                                    borderRadius:3,
+                                    transition:"width 0.7s cubic-bezier(0.4,0,0.2,1)",
+                                    position:"relative",
+                                    overflow:"hidden"
+                                  }}>
+                                    {m.done && (
+                                      <div style={{ position:"absolute", inset:0, background:"linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent)", backgroundSize:"200% 100%", animation:"shimmer 2.5s infinite" }} />
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Deadline urgency indicator (separate from completion bar) */}
+                                {urgencyLevel && (
+                                  <div style={{ display:"flex", gap:2, marginTop:5 }}>
+                                    {[
+                                      { key:"early",   label:"Early",  c:"#10b981" },
+                                      { key:"mid",     label:"Mid",    c:"#eab308" },
+                                      { key:"late",    label:"Late",   c:"#f97316" },
+                                      { key:"final",   label:"Final",  c:"#f43f5e" },
+                                      { key:"overdue", label:"",       c:"#f43f5e" },
+                                    ].filter(s => s.key !== "overdue").map((seg, i, arr) => {
+                                      const levels = ["early","mid","late","final","overdue"];
+                                      const segLevel = levels.indexOf(seg.key);
+                                      const curLevel = levels.indexOf(urgencyLevel);
+                                      const isActive = curLevel >= segLevel;
+                                      return (
+                                        <div key={seg.key} style={{ flex:1, height:2, borderRadius:1, background: isActive ? seg.c : "#1e1e38", transition:"background 0.4s" }}
+                                          title={`Deadline urgency: ${seg.label}`} />
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                {urgencyLevel && (
+                                  <div style={{ fontSize:9, color:"#6e6e8a", marginTop:3, letterSpacing:".5px", textAlign:"right" }}>
+                                    deadline urgency: <span style={{ color: urgencyLevel==="overdue"||urgencyLevel==="final" ? "#f43f5e" : urgencyLevel==="late" ? "#f97316" : urgencyLevel==="mid" ? "#eab308" : "#10b981" }}>
+                                      {urgencyLevel === "overdue" ? "overdue" : urgencyLevel === "final" ? "this week" : urgencyLevel === "late" ? "3 weeks" : urgencyLevel === "mid" ? "2 months" : "on track"}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Milestone add modal */}
+      {msModal && (
+        <MilestoneModal
+          onClose={() => setMsModal(null)}
+          onSave={ms => addMilestone(msModal, ms)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Inline Milestone Edit ────────────────────────────────────────────────────
+function InlineMsEdit({ initial, onSave, onCancel }) {
+  const [name, setName] = useState(initial.name);
+  const [deadline, setDeadline] = useState(initial.deadline || "");
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:6, flex:1, flexWrap:"wrap" }}>
+      <input value={name} onChange={e=>setName(e.target.value)} autoFocus
+        style={{ ...inputStyle, flex:1, minWidth:100, padding:"5px 8px", fontSize:12 }} />
+      <input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)}
+        style={{ ...inputStyle, width:140, padding:"5px 8px", fontSize:12 }} />
+      <button onClick={() => onSave(name.trim()||initial.name, deadline)}
+        style={{ background:"#f97316", border:"none", borderRadius:5, padding:"5px 10px", color:"#fff", fontFamily:"inherit", fontSize:11, cursor:"pointer" }}>✓</button>
+      <button onClick={onCancel}
+        style={{ background:"#13132a", border:"1px solid #525270", borderRadius:5, padding:"5px 8px", color:"#c0bdd8", fontFamily:"inherit", fontSize:11, cursor:"pointer" }}>✕</button>
+    </div>
+  );
+}
+
+// ─── Milestone Modal ──────────────────────────────────────────────────────────
+function MilestoneModal({ onClose, onSave }) {
+  const [name,     setName]     = useState("");
+  const [deadline, setDeadline] = useState("");
+  return (
+    <Modal onClose={onClose} title="Add Milestone">
+      <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <Field label="Milestone Name">
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Launch MVP" style={inputStyle} autoFocus />
+        </Field>
+        <Field label="Deadline (optional)">
+          <input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)} style={inputStyle} />
+        </Field>
+        <button onClick={() => { if(!name.trim()) return; onSave({ name:name.trim(), deadline }); }}
+          disabled={!name.trim()}
+          style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"#fff", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px" }}>
+          ADD MILESTONE
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Task Modal ───────────────────────────────────────────────────────────────
+function TaskModal({ onClose, onSave, colorOptions, initial, allTasks, goals }) {
+  const [name,          setName]          = useState(initial?.name                      || "");
+  const [duration,      setDuration]      = useState(initial?.duration                  || 30);
+  const [startTime,     setStartTime]     = useState(initial?.startTime                 || "08:00");
+  const [category,      setCategory]      = useState(initial?.category                  || "Work");
+  const [color,         setColor]         = useState(initial?.color                     || colorOptions[0]);
+  const [repType,       setRepType]       = useState(initial?.repeat?.type              || "daily");
+  const [repDays,       setRepDays]       = useState(initial?.repeat?.days              || []);
+  const [repDates,      setRepDates]      = useState(initial?.repeat?.dates             || []);
+  const [linkedGoalId,  setLinkedGoalId]  = useState(initial?.linkedMilestone?.goalId   || "");
+  const [linkedMsId,    setLinkedMsId]    = useState(initial?.linkedMilestone?.milestoneId || "");
+  const [showLink,      setShowLink]      = useState(!!(initial?.linkedMilestone?.goalId));
+
+  const selectedGoal        = (goals||[]).find(g => g.id === linkedGoalId);
+  const availableMilestones = selectedGoal?.milestones || [];
+
+  // Cascade preview
+  const cascadePreview = (() => {
+    if (!allTasks) return [];
+    const draft   = { id:initial?.id||"__new__", name:name||"New Task", duration:Number(duration), startTime, color, category, repeat:{type:repType,days:repDays,dates:repDates} };
+    const merged  = initial ? allTasks.map(t => t.id===initial.id ? draft : t) : [...allTasks, draft];
+    const resolved = resolveOverlaps(merged);
+    return resolved
+      .filter(t => t.id !== draft.id)
+      .filter(t => { const orig = allTasks.find(x=>x.id===t.id); return orig && orig.startTime !== t.startTime; })
+      .map(t => ({ name:t.name, from:allTasks.find(x=>x.id===t.id)?.startTime, to:t.startTime }));
+  })();
+
+  const cats      = ["Work","Health","Learning","Personal","Creative","Social","Finance","Other"];
+  const toggleDay  = d => setRepDays(p  => p.includes(d) ? p.filter(x=>x!==d) : [...p,d]);
+  const toggleDate = d => setRepDates(p => p.includes(d) ? p.filter(x=>x!==d) : [...p,d]);
+  const repeat     = repType==="daily" ? {type:"daily"} : repType==="weekdays" ? {type:"weekdays",days:repDays} : {type:"monthDates",dates:repDates};
+
+  const linkedMilestone = linkedGoalId
+    ? { goalId:linkedGoalId, milestoneId:linkedMsId||null }
+    : null;
+
+  const save = () => {
+    if (!name.trim()) return;
+    onSave({ id:initial?.id||"t"+Date.now(), name:name.trim(), duration:Number(duration), startTime, category, color, repeat, linkedMilestone });
+  };
+
+  return (
+    <Modal onClose={onClose} title={initial ? "Edit Task" : "New Task"}>
+      <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+        <Field label="Task Name">
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Morning Run" style={inputStyle} autoFocus />
+        </Field>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          <Field label="Start Time">
+            <input type="time" value={startTime} onChange={e=>setStartTime(e.target.value)} style={inputStyle} />
+          </Field>
+          <Field label={`Duration · ${fmtMins(Number(duration))}`}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:6 }}>
+              <input type="range" min="5" max="240" step="5" value={duration} onChange={e=>setDuration(e.target.value)} style={{ flex:1, accentColor:color }} />
+            </div>
+          </Field>
+        </div>
+
+        <Field label="Category">
+          <select value={category} onChange={e=>setCategory(e.target.value)} style={inputStyle}>
+            {cats.map(c=><option key={c}>{c}</option>)}
+          </select>
+        </Field>
+
+        <Field label="Color">
+          <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
+            {colorOptions.map(c=>(
+              <div key={c} onClick={()=>setColor(c)}
+                style={{ width:28, height:28, borderRadius:6, background:c, cursor:"pointer", border:color===c?"3px solid #fff":"3px solid transparent", transition:"all 0.13s" }} />
+            ))}
+          </div>
+        </Field>
+
+        {/* ── Repeat Schedule ── */}
+        <Field label="Repeat">
+          <div style={{ display:"flex", gap:6, marginBottom:10, flexWrap:"wrap" }}>
+            {[["daily","Every Day"],["weekdays","Weekdays"],["monthDates","Month Dates"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setRepType(v)} className={`chip${repType===v?" on":""}`}>{l}</button>
+            ))}
+          </div>
+          {repType==="weekdays" && (
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {WEEKDAYS.map((d,i) => (
+                <button key={i} onClick={()=>toggleDay(i)} className={`chip${repDays.includes(i)?" on":""}`}>{d}</button>
+              ))}
+            </div>
+          )}
+          {repType==="monthDates" && (
+            <>
+              <div style={{ fontSize:10, color:"#a0a0bc", marginBottom:8, letterSpacing:".5px" }}>Select dates of the month to repeat on:</div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+                {MONTH_DATES.map(d => (
+                  <button key={d} onClick={()=>toggleDate(d)} className={`dchip${repDates.includes(d)?" on":""}`}>{d}</button>
+                ))}
+              </div>
+            </>
+          )}
+        </Field>
+
+        {/* ── Goal / Milestone Link ── */}
+        <div style={{ borderTop:"1px solid #181830", paddingTop:14 }}>
+          {/* Toggle button */}
+          <button onClick={() => { setShowLink(v=>!v); if(showLink){ setLinkedGoalId(""); setLinkedMsId(""); } }}
+            style={{ display:"flex", alignItems:"center", gap:7, background:"none", border:"none", cursor:"pointer", color:showLink?"#f97316":"#b0b0c8", fontFamily:"inherit", fontSize:12, padding:0, letterSpacing:".5px", width:"100%" }}>
+            <Icon name="link" size={13} />
+            {showLink ? "Remove Goal Link" : "Link to Goal Milestone"}
+            <span style={{ marginLeft:"auto", fontSize:14, opacity:.5, lineHeight:1 }}>{showLink?"×":"+"}</span>
+          </button>
+
+          {showLink && (
+            <div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:0 }}>
+
+              {/* ── No goals state ── */}
+              {(goals||[]).length === 0 && (
+                <div style={{ fontSize:12, color:"#a0a0bc", background:"#13132a", borderRadius:8, padding:"11px 13px" }}>
+                  No goals yet. Create a goal first, then link tasks to milestones.
+                </div>
+              )}
+
+              {/* ── Goal not yet chosen → show goal picker cards ── */}
+              {(goals||[]).length > 0 && !linkedGoalId && (
+                <>
+                  <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#a0a0bc", marginBottom:8, textTransform:"uppercase" }}>Select Goal</div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                    {(goals||[]).map(g => {
+                      const catColors = { Health:"#10b981", Career:"#3b82f6", Learning:"#a855f7", Finance:"#eab308", Personal:"#f43f5e", Other:"#f97316" };
+                      const gc = catColors[g.category] || "#f97316";
+                      const ms = g.milestones || [];
+                      return (
+                        <div key={g.id} onClick={() => { setLinkedGoalId(g.id); setLinkedMsId(""); }}
+                          style={{ background:"#13132a", border:"1px solid #525270", borderRadius:9, padding:"11px 13px", cursor:"pointer", transition:"border-color 0.15s" }}
+                          onMouseEnter={e=>e.currentTarget.style.borderColor="#f9731660"}
+                          onMouseLeave={e=>e.currentTarget.style.borderColor="#525270"}>
+                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                            <span style={{ fontSize:13, color:"#e8e6f0", fontWeight:500 }}>{g.name}</span>
+                            <span style={{ fontSize:10, background:gc+"22", color:gc, padding:"2px 7px", borderRadius:4, letterSpacing:"1px" }}>{g.category}</span>
+                          </div>
+                          <div style={{ fontSize:11, color:"#a0a0bc", marginTop:5, display:"flex", gap:10 }}>
+                            {ms.length > 0 && <span style={{ display:"flex", alignItems:"center", gap:4 }}><Icon name="milestone" size={10}/> {ms.filter(m=>m.done).length}/{ms.length} milestones</span>}
+                            {g.deadline && <span>Due {fmtDate(g.deadline)}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* ── Goal chosen → locked header + milestone picker ── */}
+              {linkedGoalId && selectedGoal && (
+                <>
+                  {/* Locked goal card */}
+                  <div style={{ background:"#f9731610", border:"1px solid #f9731644", borderRadius:9, padding:"11px 14px", marginBottom:12 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <Icon name="flag" size={12} />
+                        <span style={{ fontSize:13, color:"#f97316", fontWeight:500 }}>{selectedGoal.name}</span>
+                      </div>
+                      <button onClick={() => { setLinkedGoalId(""); setLinkedMsId(""); }}
+                        style={{ background:"none", border:"none", cursor:"pointer", color:"#b0b0c8", fontSize:11, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4, padding:0 }}>
+                        <Icon name="close" size={11}/> change
+                      </button>
+                    </div>
+                    {selectedGoal.deadline && (
+                      <div style={{ fontSize:10, color:"#b0b0c8", marginTop:4, paddingLeft:20 }}>Due {fmtDate(selectedGoal.deadline)}</div>
+                    )}
+                  </div>
+
+                  {/* Milestone picker */}
+                  <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#a0a0bc", marginBottom:8, textTransform:"uppercase" }}>Link to Milestone</div>
+
+                  {availableMilestones.length === 0 ? (
+                    <div style={{ fontSize:12, color:"#a0a0bc", background:"#13132a", border:"1px solid #1e1e38", borderRadius:8, padding:"11px 13px", lineHeight:1.6 }}>
+                      This goal has no milestones yet.<br/>
+                      <span style={{ color:"#b0b0c8" }}>Completing this task will still count as +1 toward the goal.</span>
+                    </div>
+                  ) : (
+                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                      {availableMilestones.map(m => {
+                        const isSel = linkedMsId === m.id;
+                        return (
+                          <div key={m.id} onClick={() => setLinkedMsId(isSel ? "" : m.id)}
+                            style={{ display:"flex", alignItems:"center", gap:10, background: isSel?"#f9731614":"#13132a", border:`1px solid ${isSel?"#f9731650":"#1e1e38"}`, borderRadius:8, padding:"10px 13px", cursor: m.done?"default":"pointer", opacity:m.done?0.45:1, transition:"all 0.15s" }}>
+                            {/* Radio dot */}
+                            <div style={{ width:16, height:16, borderRadius:"50%", border:`2px solid ${isSel?"#f97316":"#a0a0bc"}`, background:isSel?"#f97316":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.15s" }}>
+                              {isSel && <div style={{ width:6, height:6, borderRadius:"50%", background:"#fff" }} />}
+                            </div>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontSize:13, color: m.done?"#a0a0bc":isSel?"#f97316":"#d8d6e8", fontWeight: isSel?500:400, textDecoration:m.done?"line-through":"none" }}>
+                                {m.name}
+                              </div>
+                              {m.deadline && (
+                                <div style={{ fontSize:10, color:"#a0a0bc", marginTop:2, display:"flex", alignItems:"center", gap:4 }}>
+                                  <Icon name="calendar" size={9}/> {fmtDate(m.deadline)}
+                                </div>
+                              )}
+                            </div>
+                            {m.done && <span style={{ fontSize:10, color:"#10b981", flexShrink:0 }}>✓ Done</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Confirmation hint */}
+                  <div style={{ marginTop:10, background:"#0d1a0d", border:"1px solid #10b98133", borderRadius:7, padding:"9px 12px", fontSize:11, color:"#10b981", lineHeight:1.6 }}>
+                    ✦ {linkedMsId
+                      ? `Completing this task will mark "${availableMilestones.find(m=>m.id===linkedMsId)?.name}" as done and update the goal progress.`
+                      : "Completing this task will count as +1 toward the goal progress."}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        <button onClick={save} disabled={!name.trim()}
+          style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"#fff", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px", marginTop:4 }}>
+          {initial ? "SAVE CHANGES" : "ADD TASK"}
+        </button>
+
+        {cascadePreview.length > 0 && (
+          <div style={{ background:"#1a1205", border:"1px solid #f97316a0", borderRadius:8, padding:"10px 13px" }}>
+            <div style={{ fontSize:10, color:"#f97316", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:7 }}>⏱ Auto-cascade will shift:</div>
+            {cascadePreview.map((c,i) => (
+              <div key={i} style={{ fontSize:11, color:"#c09060", marginBottom:3 }}>
+                <span style={{ color:"#e8c080" }}>{c.name}</span> {fmt12(c.from)} → <span style={{ color:"#f97316" }}>{fmt12(c.to)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Day Timeline ─────────────────────────────────────────────────────────────
+function DayTimeline({ tasks, nowMins }) {
+  const S = 5*60, E = 24*60, R = E-S;
+  const pct  = m => Math.max(0,Math.min(100,(m-S)/R*100));
+  const hrs  = [6,9,12,15,18,21];
+  const lbl  = h => h>12?`${h-12}pm`:h===12?"12pm":`${h}am`;
+
+  return (
+    <div style={{ background:"#0d0d1e", border:"1px solid #181830", borderRadius:10, padding:"12px 14px 16px", marginBottom:16 }}>
+      <div style={{ fontSize:10, letterSpacing:"2px", color:"#a0a0bc", marginBottom:10, textTransform:"uppercase" }}>Day Timeline</div>
+
+      {/* Track */}
+      <div style={{ position:"relative", height:32, background:"#13132a", borderRadius:6, overflow:"hidden" }}>
+
+        {/* Task blocks */}
+        {tasks.map(task => {
+          const tm = t2m(task.startTime||"00:00");
+          const left = pct(tm);
+          const width = Math.max(0.8, task.duration/R*100);
+          if (left>=100 || tm<S) return null;
+          return (
+            <div key={task.id}
+              title={`${task.name}  ${fmt12(task.startTime)} – ${fmt12(endTime(task.startTime,task.duration))}  (${fmtMins(task.duration)})`}
+              style={{ position:"absolute", left:`${left}%`, width:`${Math.min(width,100-left)}%`, top:4, height:24, background:task.color, borderRadius:3, opacity:.82, display:"flex", alignItems:"center", overflow:"hidden" }}>
+              <span style={{ fontSize:9, color:"rgba(255,255,255,.7)", padding:"0 4px", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                {task.name}
+              </span>
+            </div>
+          );
+        })}
+
+        {/* Now line */}
+        {nowMins>=S && nowMins<=E && (
+          <div style={{ position:"absolute", left:`${pct(nowMins)}%`, top:0, bottom:0, width:2, background:"#fff", opacity:.9, zIndex:10 }}>
+            <div style={{ position:"absolute", top:-1, left:-3, width:8, height:8, borderRadius:"50%", background:"#fff" }} />
+          </div>
+        )}
+      </div>
+
+      {/* Hour labels */}
+      <div style={{ position:"relative", height:14, marginTop:4 }}>
+        {hrs.map(h => {
+          const p = pct(h*60);
+          if (p<0||p>100) return null;
+          return (
+            <div key={h} style={{ position:"absolute", left:`${p}%`, transform:"translateX(-50%)", fontSize:9, color:"#6e6e8a", letterSpacing:".3px" }}>{lbl(h)}</div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Goal Modal ───────────────────────────────────────────────────────────────
+function GoalModal({ onClose, onSave }) {
+  const [name,     setName]     = useState("");
+  const [target,   setTarget]   = useState(100);
+  const [unit,     setUnit]     = useState("sessions");
+  const [category, setCategory] = useState("Personal");
+  const [deadline, setDeadline] = useState("");
+  const [notes,    setNotes]    = useState("");
+  const cats = ["Health","Career","Learning","Finance","Personal","Other"];
+
+  return (
+    <Modal onClose={onClose} title="New Goal">
+      <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <Field label="Goal Name"><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Read 24 books" style={inputStyle} autoFocus /></Field>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          <Field label="Target"><input type="number" value={target} onChange={e=>setTarget(e.target.value)} style={inputStyle} min="1" /></Field>
+          <Field label="Unit"><input value={unit} onChange={e=>setUnit(e.target.value)} placeholder="sessions, km…" style={inputStyle} /></Field>
+        </div>
+        <Field label="Category">
+          <select value={category} onChange={e=>setCategory(e.target.value)} style={inputStyle}>
+            {cats.map(c=><option key={c}>{c}</option>)}
+          </select>
+        </Field>
+        <Field label="Deadline (optional)"><input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)} style={inputStyle} /></Field>
+        <Field label="Notes (optional)"><textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="What does achieving this mean to you?" style={{ ...inputStyle, minHeight:70, resize:"vertical" }} /></Field>
+        <button onClick={() => { if(!name.trim()) return; onSave({ id:"g"+Date.now(), name:name.trim(), target:Number(target), current:0, unit, category, deadline, notes, milestones:[] }); }}
+          disabled={!name.trim()}
+          style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"#fff", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px", marginTop:4 }}>
+          CREATE GOAL
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Shared ───────────────────────────────────────────────────────────────────
+function Modal({ onClose, title, children }) {
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.78)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:500, padding:16 }} onClick={onClose}>
+      <div style={{ background:"#0b0b18", border:"1px solid #525270", borderRadius:14, padding:24, width:"100%", maxWidth:440, maxHeight:"90vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:18, fontWeight:700, color:"#fff" }}>{title}</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:"#a0a0bc", padding:4, display:"flex" }}><Icon name="close" size={18} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#a0a0bc", marginBottom:6, textTransform:"uppercase" }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+const inputStyle = {
+  width:"100%", background:"#13132a", border:"1px solid #525270", borderRadius:7,
+  padding:"10px 12px", color:"#e8e6f0", fontSize:13, outline:"none", fontFamily:"'DM Mono',monospace"
+};
+
+    // Mount the app
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>
