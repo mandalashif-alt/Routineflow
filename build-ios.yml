@@ -1,0 +1,104 @@
+name: Build RoutineFlow iOS
+
+# Runs automatically on every push to main
+# Can also be triggered manually from the Actions tab
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: Build unsigned .ipa
+    runs-on: macos-14        # Apple Silicon macOS — free tier, fastest Xcode builds
+
+    steps:
+      # ── 1. Checkout your repo ──────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Node.js 20 ──────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ── 3. Install Capacitor + plugins ────────────────────────────────────
+      - name: Install npm dependencies
+        run: npm install
+
+      # ── 4. Prepare the www/ web directory ─────────────────────────────────
+      #    Capacitor looks for index.html inside webDir ("www")
+      #    Your single HTML file lives at the repo root as index.html
+      - name: Prepare web directory
+        run: |
+          mkdir -p www
+          cp index.html www/index.html
+
+      # ── 5. Add iOS platform + sync web files + install plugins ────────────
+      - name: Add Capacitor iOS platform
+        run: npx cap add ios
+
+      - name: Sync web assets and plugins to iOS
+        run: npx cap sync ios
+
+      # ── 6. Install CocoaPods dependencies (already on macOS runner) ────────
+      - name: Install CocoaPods
+        run: |
+          cd ios/App
+          pod install --repo-update
+
+      # ── 7. Build the Xcode archive (unsigned — for AltStore sideloading) ──
+      #    CODE_SIGNING_ALLOWED=NO produces an unsigned binary.
+      #    AltStore signs it with your free Apple ID on install.
+      - name: Build Xcode archive (unsigned)
+        run: |
+          xcodebuild archive \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/RoutineFlow.xcarchive" \
+            -destination "generic/platform=iOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE="" \
+            SKIP_INSTALL=NO \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+            | xcpretty || true
+
+      # ── 8. Package the .app into a sideloadable .ipa ──────────────────────
+      - name: Package into .ipa
+        run: |
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -r "$RUNNER_TEMP/RoutineFlow.xcarchive/Products/Applications/App.app" \
+                "$RUNNER_TEMP/Payload/RoutineFlow.app"
+          cd "$RUNNER_TEMP"
+          zip -r RoutineFlow.ipa Payload/
+          echo "✅ RoutineFlow.ipa created at $RUNNER_TEMP/RoutineFlow.ipa"
+          ls -lh "$RUNNER_TEMP/RoutineFlow.ipa"
+
+      # ── 9. Upload .ipa as a downloadable GitHub Actions artifact ──────────
+      #    Go to: Actions tab → latest run → Artifacts → RoutineFlow.ipa
+      - name: Upload RoutineFlow.ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: RoutineFlow
+          path: ${{ runner.temp }}/RoutineFlow.ipa
+          retention-days: 30
+          if-no-files-found: error
+
+      # ── 10. Print a summary with download instructions ────────────────────
+      - name: Build summary
+        run: |
+          echo "## ✅ RoutineFlow.ipa built successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### How to install on your iPhone 13 Pro" >> $GITHUB_STEP_SUMMARY
+          echo "1. Scroll to **Artifacts** at the bottom of this page" >> $GITHUB_STEP_SUMMARY
+          echo "2. Download **RoutineFlow.ipa**" >> $GITHUB_STEP_SUMMARY
+          echo "3. Plug iPhone into PC → AltServer in tray → open **AltStore** on iPhone" >> $GITHUB_STEP_SUMMARY
+          echo "4. Tap **My Apps → + → browse to RoutineFlow.ipa** → Install" >> $GITHUB_STEP_SUMMARY
+          echo "5. App appears on home screen in ~30 seconds ✓" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifact expires in 30 days. Re-run workflow to rebuild." >> $GITHUB_STEP_SUMMARY
