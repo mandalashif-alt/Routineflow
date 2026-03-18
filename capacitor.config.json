@@ -1,0 +1,27 @@
+{
+  "appId": "io.routineflow.app",
+  "appName": "RoutineFlow",
+  "webDir": "www",
+  "backgroundColor": "#080810",
+  "ios": {
+    "contentInset": "always",
+    "preferredContentMode": "mobile",
+    "backgroundColor": "#080810",
+    "allowsLinkPreview": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon",
+      "iconColor": "#f97316",
+      "sound": "default"
+    }
+  },
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": [
+      "*.firebaseapp.com",
+      "*.googleapis.com",
+      "api.telegram.org"
+    ]
+  }
+}
