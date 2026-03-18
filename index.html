@@ -11,7 +11,6 @@
   <meta name="description" content="Build your best day, every day." />
   <title>RoutineFlow</title>
 
-  <!-- PWA Manifest (inline) -->
   <link rel="manifest" href="data:application/json,{
     %22name%22:%22RoutineFlow%22,
     %22short_name%22:%22RoutineFlow%22,
@@ -24,15 +23,12 @@
     %22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%23080810'/%3E%3Ctext x='256' y='340' text-anchor='middle' font-family='Arial Black' font-weight='900' font-size='220' fill='%23f97316'%3ERF%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22512x512%22,%22type%22:%22image/svg+xml%22,%22purpose%22:%22any maskable%22}]
   }" />
 
-  <!-- iOS home screen icon -->
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23080810'/><text x='256' y='340' text-anchor='middle' font-family='Arial Black' font-weight='900' font-size='220' fill='%23f97316'>RF</text></svg>" />
 
-  <!-- CDN: React + Babel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 
-  <!-- Firebase SDK (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -42,7 +38,6 @@
     html, body { height: 100%; background: #080810; overflow-x: hidden; }
     body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
     #root { min-height: 100vh; }
-    /* iOS tap highlight remove */
     * { -webkit-tap-highlight-color: transparent; }
     input, button, select, textarea { font-family: 'DM Mono', monospace !important; }
   </style>
@@ -50,7 +45,6 @@
 <body>
   <div id="root"></div>
 
-  <!-- PWA Install Banner (iOS) -->
   <div id="ios-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#0e0e1d;border-top:1px solid #f97316;padding:14px 18px;z-index:9999;font-family:'DM Mono',monospace;">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12;">
       <div>
@@ -65,7 +59,6 @@
   </div>
 
   <script>
-    // Show iOS install banner if not already installed
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const isStandalone = window.navigator.standalone;
     const bannerDismissed = localStorage.getItem('rf_banner_dismissed');
@@ -78,7 +71,6 @@
       });
     }
 
-    // Service Worker — cache + notification support
     if ('serviceWorker' in navigator) {
       const swCode = `
         const CACHE = 'routineflow-v2';
@@ -109,14 +101,8 @@
         self.addEventListener('message', e => {
           if (e.data && e.data.type === 'SHOW_NOTIFICATION') {
             const { title, body, tag } = e.data;
-            // silent:false ensures iOS plays its own default alert sound
-            // vibrate triggers haptic feedback on Android
             self.registration.showNotification(title, {
-              body,
-              tag,
-              silent: false,
-              vibrate: [300, 100, 300],
-              requireInteraction: false,
+              body, tag, silent: false, vibrate: [300, 100, 300], requireInteraction: false,
               icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="%23080810"/><text x="256" y="340" text-anchor="middle" font-family="Arial Black" font-weight="900" font-size="220" fill="%23f97316">RF</text></svg>',
             });
           }
@@ -139,23 +125,21 @@
       appId:             "1:2685960181:web:8cceb3b5b3fc695cbdaabc",
       measurementId:     "G-KVH5C3CXFF"
     };
-    // ── FIREBASE INIT ───────────────────────────────────────────────────────
     try {
       firebase.initializeApp(firebaseConfig);
       window._auth = firebase.auth();
       window._db   = firebase.firestore();
       window._firebaseReady = true;
-      // Enable offline persistence
       window._db.enablePersistence().catch(() => {});
     } catch(e) {
-      console.warn("Firebase unavailable (preview mode) — falling back to localStorage");
+      console.warn("Firebase unavailable — falling back to localStorage");
       window._firebaseReady = false;
-      // Mock auth object so app doesn't crash in preview
       window._auth = {
         onAuthStateChanged: (cb) => { cb(null); return () => {}; },
-        signInWithEmailAndPassword: () => Promise.reject({ code:"auth/preview-mode", message:"Firebase not available in preview. Please open via GitHub Pages." }),
-        createUserWithEmailAndPassword: () => Promise.reject({ code:"auth/preview-mode", message:"Firebase not available in preview. Please open via GitHub Pages." }),
-        signInWithPopup: () => Promise.reject({ code:"auth/preview-mode", message:"Firebase not available in preview. Please open via GitHub Pages." }),
+        signInWithEmailAndPassword: () => Promise.reject({ code:"auth/preview-mode", message:"Firebase not available in preview." }),
+        createUserWithEmailAndPassword: () => Promise.reject({ code:"auth/preview-mode", message:"Firebase not available in preview." }),
+        signInWithRedirect: () => Promise.reject({ code:"auth/preview-mode", message:"Firebase not available in preview." }),
+        getRedirectResult: () => Promise.resolve(null),
         signOut: () => Promise.resolve(),
       };
       window._db = null;
@@ -180,7 +164,6 @@ const store = {
         }
         return null;
       }
-      // Fallback: localStorage (preview / offline)
       const v = localStorage.getItem(key);
       return v ? JSON.parse(v) : null;
     } catch { return null; }
@@ -226,13 +209,11 @@ const COLORS   = ["#f97316","#3b82f6","#10b981","#a855f7","#f43f5e","#eab308","#
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MONTH_DATES = Array.from({length:31},(_,i)=>i+1);
 
-// ─── Time Helpers ─────────────────────────────────────────────────────────────
 const t2m      = t => { const [h,m]=(t||"00:00").split(":").map(Number); return h*60+m; };
 const addMins  = (t,m) => { const tot=(t2m(t)+m+1440)%1440; return `${String(Math.floor(tot/60)).padStart(2,"0")}:${String(tot%60).padStart(2,"0")}`; };
 const fmt12    = t => { if(!t)return""; const [h,m]=t.split(":").map(Number); return `${h%12||12}:${String(m).padStart(2,"0")} ${h>=12?"PM":"AM"}`; };
 const endTime  = (start,dur) => addMins(start,dur);
 
-// Auto-cascade: after any task change, push subsequent tasks that would overlap
 const resolveOverlaps = tasks => {
   const s = [...tasks].sort((a,b) => t2m(a.startTime||"00:00") - t2m(b.startTime||"00:00"));
   for (let i = 0; i < s.length - 1; i++) {
@@ -253,7 +234,6 @@ const taskAppliesToDate = (task, dateStr) => {
 
 const ordinal = n => `${n}${["st","nd","rd"][((n%100-20||n%100)%10)-1]||"th"}`;
 
-// ─── Default Tasks ────────────────────────────────────────────────────────────
 const DEFAULT_TASKS = [
   { id:"t1", name:"Morning Exercise", duration:30, startTime:"07:00", color:"#f97316", category:"Health",   repeat:{ type:"weekdays",   days:[1,2,3,4,5] } },
   { id:"t2", name:"Deep Work Block",  duration:90, startTime:"09:00", color:"#3b82f6", category:"Work",     repeat:{ type:"daily" } },
@@ -276,12 +256,12 @@ const Icon = ({ name, size=16 }) => {
     clock:    <svg {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
     globe:    <svg {...p}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
     repeat:   <svg {...p}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>,
-    edit:      <svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
-    chev:      <svg {...p} strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>,
-    chevup:    <svg {...p} strokeWidth="2.5"><polyline points="18 15 12 9 6 15"/></svg>,
-    milestone: <svg {...p}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
-    link:      <svg {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
-    flag:      <svg {...p}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>,
+    edit:     <svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+    chev:     <svg {...p} strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>,
+    chevup:   <svg {...p} strokeWidth="2.5"><polyline points="18 15 12 9 6 15"/></svg>,
+    milestone:<svg {...p}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
+    link:     <svg {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
+    flag:     <svg {...p}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>,
   };
   return icons[name] || null;
 };
@@ -298,12 +278,9 @@ function useClock(tz) {
   return time;
 }
 
-// ─── Notification Engine ──────────────────────────────────────────────────────
-// ─── Sound Engine (Web Audio API — redesigned for maximum audibility) ────────
+// ─── Sound Engine ─────────────────────────────────────────────────────────────
 const RFSound = {
   _ctx: null,
-
-  // Get/create AudioContext — resumes on iOS after user gesture
   getCtx() {
     if (!this._ctx) {
       try { this._ctx = new (window.AudioContext || window.webkitAudioContext)(); }
@@ -312,269 +289,153 @@ const RFSound = {
     if (this._ctx.state === 'suspended') this._ctx.resume();
     return this._ctx;
   },
-
-  // Core tone builder — uses square wave by default for maximum loudness
-  // Adds a compressor to prevent distortion at high volumes
   _tone(ctx, freq, startSec, durSec, vol=0.7, type='square') {
     const now = ctx.currentTime;
     const t   = now + startSec;
-
     const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
     const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -6;
-    comp.knee.value      = 3;
-    comp.ratio.value     = 4;
-
-    osc.connect(gain);
-    gain.connect(comp);
-    comp.connect(ctx.destination);
-
+    comp.threshold.value = -6; comp.knee.value = 3; comp.ratio.value = 4;
+    osc.connect(gain); gain.connect(comp); comp.connect(ctx.destination);
     osc.type = type;
     osc.frequency.setValueAtTime(freq, t);
-
-    // Sharp attack, exponential decay — sounds like a real alert
     gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(vol, t + 0.008);  // 8ms attack
+    gain.gain.exponentialRampToValueAtTime(vol, t + 0.008);
     gain.gain.exponentialRampToValueAtTime(vol * 0.7, t + 0.05);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + durSec);
-
-    osc.start(t);
-    osc.stop(t + durSec + 0.02);
+    osc.start(t); osc.stop(t + durSec + 0.02);
   },
-
-  // 🎵 CHIME — 3-note ascending melody (doorbell style)
-  // Uses triangle wave — clear, musical, audible
   chime(vol=0.8) {
     const ctx = this.getCtx(); if (!ctx) return;
-    const notes = [523, 659, 784]; // C5, E5, G5
-    notes.forEach((f, i) => {
+    [523, 659, 784].forEach((f, i) => {
       this._tone(ctx, f, i * 0.22, 0.35, vol, 'triangle');
-      // Add a quiet overtone for richness
       this._tone(ctx, f * 2, i * 0.22, 0.2, vol * 0.15, 'sine');
     });
   },
-
-  // 🔔 BELL — 2 sharp double-rings (school bell / alert)
   bell(vol=0.8) {
     const ctx = this.getCtx(); if (!ctx) return;
     [0, 0.18, 0.55, 0.73].forEach(t => {
-      this._tone(ctx, 880,  t,      0.14, vol,       'square');
-      this._tone(ctx, 1320, t,      0.10, vol * 0.3, 'triangle');
+      this._tone(ctx, 880, t, 0.14, vol, 'square');
+      this._tone(ctx, 1320, t, 0.10, vol * 0.3, 'triangle');
     });
   },
-
-  // 📱 RINGTONE — classic iPhone-style dual-tone ring
   ringtone(vol=0.8) {
     const ctx = this.getCtx(); if (!ctx) return;
-    // Two burst groups separated by silence — like a real phone ring
     const burst = (offset) => {
       for (let i = 0; i < 8; i++) {
         const freq = i % 2 === 0 ? 480 : 620;
         this._tone(ctx, freq, offset + i * 0.07, 0.065, vol, 'square');
       }
     };
-    burst(0.0);  // ring...
-    burst(0.75); // ring...
+    burst(0.0); burst(0.75);
   },
-
-  // ✨ PING — 2 quick ascending pings (like a message notification)
   ping(vol=0.75) {
     const ctx = this.getCtx(); if (!ctx) return;
-    this._tone(ctx, 880,  0.00, 0.18, vol,       'triangle');
+    this._tone(ctx, 880, 0.00, 0.18, vol, 'triangle');
     this._tone(ctx, 1320, 0.15, 0.22, vol * 0.8, 'triangle');
-    this._tone(ctx, 880,  0.0,  0.1,  vol * 0.2, 'sine'); // soft body
+    this._tone(ctx, 880, 0.0, 0.1, vol * 0.2, 'sine');
   },
-
-  // Play by name
   play(name='bell', vol=0.8) {
     try {
-      // Always resume context first (critical for iOS)
       const ctx = this.getCtx();
       if (ctx && ctx.state === 'suspended') {
         ctx.resume().then(() => this._playByName(name, vol));
-      } else {
-        this._playByName(name, vol);
-      }
+      } else { this._playByName(name, vol); }
     } catch(e) { console.warn('RFSound error:', e); }
   },
-
   _playByName(name, vol) {
     if      (name === 'chime')    this.chime(vol);
     else if (name === 'bell')     this.bell(vol);
     else if (name === 'ringtone') this.ringtone(vol);
     else if (name === 'ping')     this.ping(vol);
-    else                          this.bell(vol); // safe default
+    else                          this.bell(vol);
   }
 };
 
 // ─── Telegram Engine ──────────────────────────────────────────────────────────
 const RFTelegram = {
-  // Load saved credentials
   load() {
-    try {
-      const raw = localStorage.getItem('rf_telegram');
-      return raw ? JSON.parse(raw) : { token:'', chatId:'', enabled:false };
-    } catch { return { token:'', chatId:'', enabled:false }; }
+    try { const raw = localStorage.getItem('rf_telegram'); return raw ? JSON.parse(raw) : { token:'', chatId:'', enabled:false }; }
+    catch { return { token:'', chatId:'', enabled:false }; }
   },
-
-  // Save credentials
-  save(cfg) {
-    try { localStorage.setItem('rf_telegram', JSON.stringify(cfg)); } catch {}
-  },
-
-  // Send a message via Telegram Bot API
+  save(cfg) { try { localStorage.setItem('rf_telegram', JSON.stringify(cfg)); } catch {} },
   async send(text, cfg) {
     const c = cfg || this.load();
     if (!c.enabled || !c.token || !c.chatId) return false;
     try {
-      const res = await fetch(
-        `https://api.telegram.org/bot${c.token}/sendMessage`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id:    c.chatId,
-            text:       text,
-            parse_mode: 'HTML',
-          })
-        }
-      );
+      const res = await fetch(`https://api.telegram.org/bot${c.token}/sendMessage`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: c.chatId, text, parse_mode: 'HTML' })
+      });
       const json = await res.json();
       return json.ok === true;
-    } catch(e) {
-      console.warn('[RFTelegram] send failed:', e);
-      return false;
-    }
+    } catch(e) { return false; }
   },
-
-  // Test connection — returns { ok, error }
   async test(token, chatId) {
     try {
-      const res  = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id:    chatId,
-          text:       '✅ <b>RoutineFlow connected!</b>\n\nYou will now receive task alerts here.',
-          parse_mode: 'HTML',
-        })
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: '✅ <b>RoutineFlow connected!</b>\n\nYou will now receive task alerts here.', parse_mode: 'HTML' })
       });
       const json = await res.json();
       if (json.ok) return { ok: true };
       return { ok: false, error: json.description || 'Unknown error' };
-    } catch(e) {
-      return { ok: false, error: 'Network error — check token and try again.' };
-    }
+    } catch(e) { return { ok: false, error: 'Network error — check token and try again.' }; }
   }
 };
 
-
+// ─── Notification Engine ──────────────────────────────────────────────────────
 const RFNotify = {
   _timers: [],
-
   async requestPermission() {
     if (!('Notification' in window)) return 'unsupported';
     if (Notification.permission === 'granted') return 'granted';
     if (Notification.permission === 'denied')  return 'denied';
-    RFSound.getCtx(); // unlock audio at same gesture
+    RFSound.getCtx();
     return await Notification.requestPermission();
   },
-
-  // Show notification + play sound + send Telegram
   async show(title, body, tag, soundName, volume) {
-    // 1. Play sound (foreground)
     RFSound.play(soundName || 'chime', volume ?? 0.6);
-
-    // 2. Telegram message — works when app is minimised/background
-    const tgText = `🔔 <b>RoutineFlow</b>\n${title}\n<i>${body}</i>`;
-    RFTelegram.send(tgText);
-
-    // 3. System notification
+    RFTelegram.send(`🔔 <b>RoutineFlow</b>\n${title}\n<i>${body}</i>`);
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     try {
       const sw = window._swReg || (navigator.serviceWorker && await navigator.serviceWorker.ready);
-      if (sw && sw.active) {
-        sw.active.postMessage({ type:'SHOW_NOTIFICATION', title, body, tag });
-      } else {
-        new Notification(title, { body, tag });
-      }
-    } catch(e) {
-      try { new Notification(title, { body, tag }); } catch {}
-    }
+      if (sw && sw.active) { sw.active.postMessage({ type:'SHOW_NOTIFICATION', title, body, tag }); }
+      else { new Notification(title, { body, tag }); }
+    } catch(e) { try { new Notification(title, { body, tag }); } catch {} }
   },
-
-  clearAll() {
-    this._timers.forEach(id => clearTimeout(id));
-    this._timers = [];
-  },
-
-  // Save upcoming schedule to localStorage so app can re-arm after reopen
-  _saveSchedule(entries) {
-    try { localStorage.setItem('rf_sched', JSON.stringify(entries)); } catch {}
-  },
-  _loadSchedule() {
-    try { return JSON.parse(localStorage.getItem('rf_sched')) || []; } catch { return []; }
-  },
-
+  clearAll() { this._timers.forEach(id => clearTimeout(id)); this._timers = []; },
+  _saveSchedule(entries) { try { localStorage.setItem('rf_sched', JSON.stringify(entries)); } catch {} },
+  _loadSchedule() { try { return JSON.parse(localStorage.getItem('rf_sched')) || []; } catch { return []; } },
   scheduleTasks(tasks, timezone, settings) {
     this.clearAll();
     if (!settings.enabled) return;
-
-    const now      = new Date();
+    const now = new Date();
     const todayStr = now.toLocaleDateString('en-CA', { timeZone: timezone });
-    const sound    = settings.sound  || 'chime';
-    const volume   = (settings.volume ?? 70) / 100;
-
-    // Build full schedule list — used both for timers AND for persistent storage
+    const sound = settings.sound || 'chime';
+    const volume = (settings.volume ?? 70) / 100;
     const entries = [];
-
     tasks.forEach(task => {
       if (!task.startTime) return;
       const taskStart = new Date(todayStr + 'T' + task.startTime + ':00');
       const taskEnd   = new Date(taskStart.getTime() + (task.duration || 30) * 60000);
       const msStart   = taskStart - now;
-      const msEnd     = taskEnd   - now;
-      const msWarn    = msStart - 5 * 60000; // 5 min before
-      const msWarn1   = msStart - 60000;     // 1 min before (fallback if <5min away)
-
+      const msEnd     = taskEnd - now;
+      const msWarn    = msStart - 5 * 60000;
+      const msWarn1   = msStart - 60000;
       if (settings.fiveMin) {
-        if (msWarn > 0) {
-          // Normal 5-min warning — use selected sound at slightly lower volume
-          entries.push({ at: taskStart.getTime() - 5*60000, title:`⏰ Starting in 5 minutes`, body:`${task.name} — ${fmt12(task.startTime)}`, tag:`rf-warn-${task.id}`, sound: sound, volume: volume * 0.85 });
-        } else if (msWarn1 > 0) {
-          // Task is < 5 min away — give a 1-min warning instead
-          entries.push({ at: taskStart.getTime() - 60000, title:`⏰ Starting in 1 minute`, body:`${task.name} — ${fmt12(task.startTime)}`, tag:`rf-warn1-${task.id}`, sound: sound, volume: volume * 0.85 });
-        }
+        if (msWarn > 0) entries.push({ at: taskStart.getTime() - 5*60000, title:`⏰ Starting in 5 minutes`, body:`${task.name} — ${fmt12(task.startTime)}`, tag:`rf-warn-${task.id}`, sound, volume: volume * 0.85 });
+        else if (msWarn1 > 0) entries.push({ at: taskStart.getTime() - 60000, title:`⏰ Starting in 1 minute`, body:`${task.name} — ${fmt12(task.startTime)}`, tag:`rf-warn1-${task.id}`, sound, volume: volume * 0.85 });
       }
-
-      if (settings.onStart && msStart > 0) {
-        entries.push({ at: taskStart.getTime(), title:`▶ ${task.name}`, body:`Starting now · ${fmt12(task.startTime)}`, tag:`rf-start-${task.id}`, sound, volume });
-      }
-
-      if (settings.onEnd && msEnd > 0) {
-        entries.push({ at: taskEnd.getTime(), title:`✓ ${task.name} complete`, body:`Well done! Task finished.`, tag:`rf-end-${task.id}`, sound:'ping', volume: volume*0.8 });
-      }
+      if (settings.onStart && msStart > 0) entries.push({ at: taskStart.getTime(), title:`▶ ${task.name}`, body:`Starting now · ${fmt12(task.startTime)}`, tag:`rf-start-${task.id}`, sound, volume });
+      if (settings.onEnd && msEnd > 0) entries.push({ at: taskEnd.getTime(), title:`✓ ${task.name} complete`, body:`Well done! Task finished.`, tag:`rf-end-${task.id}`, sound:'ping', volume: volume*0.8 });
     });
-
-    // Save to localStorage so re-arm can pick them up on page reopen
     this._saveSchedule(entries);
-
-    // Set all setTimeout timers for this session
     entries.forEach(entry => {
       const ms = entry.at - Date.now();
-      if (ms > 0) {
-        const id = setTimeout(() => {
-          this.show(entry.title, entry.body, entry.tag, entry.sound, entry.volume);
-        }, ms);
-        this._timers.push(id);
-      }
+      if (ms > 0) { const id = setTimeout(() => { this.show(entry.title, entry.body, entry.tag, entry.sound, entry.volume); }, ms); this._timers.push(id); }
     });
-
-    console.log(`[RFNotify] Scheduled ${entries.length} alerts for today`);
   },
-
-  // Called on page reopen / visibility change — catch up on anything missed
   rearmFromStorage() {
     const entries = this._loadSchedule();
     if (!entries.length) return;
@@ -582,19 +443,9 @@ const RFNotify = {
     let rearmed = 0;
     entries.forEach(entry => {
       const ms = entry.at - now;
-      // Fire missed alerts within last 10 min immediately (with small stagger)
-      if (ms < 0 && ms > -10 * 60000) {
-        setTimeout(() => this.show(entry.title, entry.body, entry.tag, entry.sound, entry.volume), 600 + rearmed * 800);
-        rearmed++;
-      } else if (ms > 0) {
-        const id = setTimeout(() => {
-          this.show(entry.title, entry.body, entry.tag, entry.sound, entry.volume);
-        }, ms);
-        this._timers.push(id);
-        rearmed++;
-      }
+      if (ms < 0 && ms > -10 * 60000) { setTimeout(() => this.show(entry.title, entry.body, entry.tag, entry.sound, entry.volume), 600 + rearmed * 800); rearmed++; }
+      else if (ms > 0) { const id = setTimeout(() => { this.show(entry.title, entry.body, entry.tag, entry.sound, entry.volume); }, ms); this._timers.push(id); rearmed++; }
     });
-    if (rearmed) console.log(`[RFNotify] Re-armed ${rearmed} alerts`);
   }
 };
 
@@ -603,7 +454,6 @@ function NotifBanner({ onGranted, onDismiss }) {
   const [loading, setLoading] = useState(false);
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone = window.navigator.standalone;
-
   const handleEnable = async () => {
     setLoading(true);
     const result = await RFNotify.requestPermission();
@@ -611,7 +461,6 @@ function NotifBanner({ onGranted, onDismiss }) {
     if (result === 'granted') onGranted();
     else if (result === 'denied') onDismiss();
   };
-
   if (isIos && !isStandalone) {
     return (
       <div style={{ margin:"0 0 14px", background:"#1a1a0a", border:"1px solid #f9731644", borderRadius:10, padding:"13px 16px" }}>
@@ -622,13 +471,10 @@ function NotifBanner({ onGranted, onDismiss }) {
       </div>
     );
   }
-
   return (
     <div style={{ margin:"0 0 14px", background:"#0d1a0d", border:"1px solid #10b98144", borderRadius:10, padding:"13px 16px" }}>
       <div style={{ fontSize:13, color:"#10b981", fontWeight:600, marginBottom:6 }}>🔔 Enable task notifications</div>
-      <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.6, marginBottom:10 }}>
-        Get notified 5 minutes before tasks start, when they begin, and when they end.
-      </div>
+      <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.6, marginBottom:10 }}>Get notified 5 minutes before tasks start, when they begin, and when they end.</div>
       <div style={{ display:"flex", gap:8 }}>
         <button onClick={handleEnable} disabled={loading}
           style={{ background:"#10b981", border:"none", borderRadius:7, padding:"7px 16px", color:"#fff", fontSize:12, fontFamily:"inherit", cursor:"pointer", fontWeight:600 }}>
@@ -643,43 +489,23 @@ function NotifBanner({ onGranted, onDismiss }) {
   );
 }
 
-// ─── Telegram Settings Component ─────────────────────────────────────────────
+// ─── Telegram Settings ────────────────────────────────────────────────────────
 function TelegramSettings() {
-  const [cfg,     setCfg]     = useState(() => RFTelegram.load());
-  const [status,  setStatus]  = useState(null); // null | 'testing' | 'ok' | 'error'
-  const [errMsg,  setErrMsg]  = useState('');
-  const [showHelp,setShowHelp]= useState(false);
-
-  const handleSave = (newCfg) => {
-    setCfg(newCfg);
-    RFTelegram.save(newCfg);
-  };
-
+  const [cfg, setCfg] = useState(() => RFTelegram.load());
+  const [status, setStatus] = useState(null);
+  const [errMsg, setErrMsg] = useState('');
+  const [showHelp, setShowHelp] = useState(false);
+  const handleSave = (newCfg) => { setCfg(newCfg); RFTelegram.save(newCfg); };
   const handleTest = async () => {
-    if (!cfg.token || !cfg.chatId) {
-      setStatus('error'); setErrMsg('Please enter both Bot Token and Chat ID first.');
-      return;
-    }
+    if (!cfg.token || !cfg.chatId) { setStatus('error'); setErrMsg('Please enter both Bot Token and Chat ID first.'); return; }
     setStatus('testing');
     const result = await RFTelegram.test(cfg.token.trim(), cfg.chatId.trim());
-    if (result.ok) {
-      setStatus('ok');
-      handleSave({ ...cfg, token: cfg.token.trim(), chatId: cfg.chatId.trim(), enabled: true });
-    } else {
-      setStatus('error');
-      setErrMsg(result.error || 'Failed. Check your token and chat ID.');
-    }
+    if (result.ok) { setStatus('ok'); handleSave({ ...cfg, token: cfg.token.trim(), chatId: cfg.chatId.trim(), enabled: true }); }
+    else { setStatus('error'); setErrMsg(result.error || 'Failed. Check your token and chat ID.'); }
   };
-
-  const inputStyle = {
-    width:"100%", background:"#0a0a18", border:"1px solid #242444", borderRadius:8,
-    padding:"9px 12px", color:"#fff", fontSize:12, fontFamily:"'DM Mono',monospace",
-    outline:"none", boxSizing:"border-box", marginTop:5,
-  };
-
+  const inputStyle = { width:"100%", background:"#0a0a18", border:"1px solid #242444", borderRadius:8, padding:"9px 12px", color:"#fff", fontSize:12, fontFamily:"'DM Mono',monospace", outline:"none", boxSizing:"border-box", marginTop:5 };
   return (
     <div style={{ marginTop:16, borderTop:"1px solid #181830", paddingTop:16 }}>
-      {/* Header row */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontSize:20 }}>✈️</span>
@@ -688,54 +514,21 @@ function TelegramSettings() {
             <div style={{ fontSize:10, color:"#6e6e8a" }}>Fire even when app is minimised</div>
           </div>
         </div>
-        {/* Master toggle for Telegram */}
         <div onClick={() => handleSave({ ...cfg, enabled: !cfg.enabled })}
           style={{ width:44, height:26, borderRadius:13, background:cfg.enabled && cfg.token && cfg.chatId ? "#2AABEE":"#252540", position:"relative", cursor:"pointer", transition:"background 0.2s", flexShrink:0 }}>
           <div style={{ position:"absolute", top:3, left: cfg.enabled && cfg.token && cfg.chatId ? 20:3, width:20, height:20, borderRadius:"50%", background:"#fff", transition:"left 0.2s", boxShadow:"0 1px 4px rgba(0,0,0,.5)" }} />
         </div>
       </div>
-
-      {/* Status badge */}
-      {cfg.token && cfg.chatId && (
-        <div style={{ marginBottom:10, display:"flex", alignItems:"center", gap:6, fontSize:11 }}>
-          <span style={{ width:7, height:7, borderRadius:"50%", background: cfg.enabled ? "#2AABEE":"#525270", display:"inline-block", flexShrink:0 }} />
-          <span style={{ color: cfg.enabled ? "#2AABEE":"#6e6e8a" }}>
-            {cfg.enabled ? "Connected — alerts will be sent to Telegram" : "Connected but disabled"}
-          </span>
-        </div>
-      )}
-
-      {/* Fields */}
       <div style={{ marginBottom:8 }}>
         <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1px", textTransform:"uppercase" }}>Bot Token</div>
-        <input style={inputStyle} type="password"
-          placeholder="1234567890:ABCdef..."
-          value={cfg.token}
-          onChange={e => handleSave({ ...cfg, token: e.target.value, enabled: false })}
-        />
+        <input style={inputStyle} type="password" placeholder="1234567890:ABCdef..." value={cfg.token} onChange={e => handleSave({ ...cfg, token: e.target.value, enabled: false })} />
       </div>
       <div style={{ marginBottom:10 }}>
         <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1px", textTransform:"uppercase" }}>Chat ID</div>
-        <input style={inputStyle} type="text"
-          placeholder="123456789"
-          value={cfg.chatId}
-          onChange={e => handleSave({ ...cfg, chatId: e.target.value, enabled: false })}
-        />
+        <input style={inputStyle} type="text" placeholder="123456789" value={cfg.chatId} onChange={e => handleSave({ ...cfg, chatId: e.target.value, enabled: false })} />
       </div>
-
-      {/* Status message */}
-      {status === 'ok' && (
-        <div style={{ background:"#0d1a0d", border:"1px solid #2AABEE55", borderRadius:7, padding:"8px 12px", marginBottom:10, fontSize:12, color:"#2AABEE" }}>
-          ✅ Connected! Check your Telegram — a test message was sent.
-        </div>
-      )}
-      {status === 'error' && (
-        <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:7, padding:"8px 12px", marginBottom:10, fontSize:12, color:"#f87090" }}>
-          ❌ {errMsg}
-        </div>
-      )}
-
-      {/* Buttons */}
+      {status === 'ok' && <div style={{ background:"#0d1a0d", border:"1px solid #2AABEE55", borderRadius:7, padding:"8px 12px", marginBottom:10, fontSize:12, color:"#2AABEE" }}>✅ Connected! Check your Telegram.</div>}
+      {status === 'error' && <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:7, padding:"8px 12px", marginBottom:10, fontSize:12, color:"#f87090" }}>❌ {errMsg}</div>}
       <div style={{ display:"flex", gap:8, marginBottom:10 }}>
         <button onClick={handleTest} disabled={status==='testing'}
           style={{ flex:1, background:"#2AABEE22", border:"1px solid #2AABEE55", borderRadius:8, padding:"9px", color:"#2AABEE", fontSize:12, fontFamily:"inherit", cursor:"pointer", fontWeight:600 }}>
@@ -748,59 +541,40 @@ function TelegramSettings() {
           </button>
         )}
       </div>
-
-      {/* Setup guide toggle */}
       <button onClick={() => setShowHelp(h => !h)}
         style={{ background:"none", border:"none", color:"#f97316", fontSize:12, fontFamily:"inherit", cursor:"pointer", padding:0, textDecoration:"underline" }}>
         {showHelp ? "Hide setup guide" : "How to set up Telegram (2 min)"}
       </button>
-
       {showHelp && (
         <div style={{ marginTop:12, background:"#0f0f1e", border:"1px solid #1e1e38", borderRadius:9, padding:"13px 14px" }}>
           <div style={{ fontSize:12, color:"#f97316", fontWeight:600, marginBottom:10 }}>Telegram Setup — 3 steps</div>
-          {[
-            ["1", "Get Bot Token", 'Open Telegram → search "@BotFather" → send /newbot → follow prompts → copy the token it gives you'],
-            ["2", "Get Chat ID",   'Search "@userinfobot" in Telegram → send /start → copy the "Id" number it shows you'],
-            ["3", "Connect",       'Paste both values above → tap "Test Connection" → you will receive a test message in Telegram'],
-          ].map(([n, title, desc]) => (
+          {[["1","Get Bot Token",'Open Telegram → search "@BotFather" → send /newbot → copy the token'],["2","Get Chat ID",'Search "@userinfobot" → send /start → copy the Id number'],["3","Connect",'Paste both values above → tap "Test Connection"']].map(([n,title,desc]) => (
             <div key={n} style={{ display:"flex", gap:10, marginBottom:10, alignItems:"flex-start" }}>
               <div style={{ width:20, height:20, borderRadius:"50%", background:"#f97316", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0, marginTop:1 }}>{n}</div>
-              <div>
-                <div style={{ fontSize:12, color:"#fff", fontWeight:600 }}>{title}</div>
-                <div style={{ fontSize:11, color:"#a0a0bc", marginTop:2, lineHeight:1.5 }}>{desc}</div>
-              </div>
+              <div><div style={{ fontSize:12, color:"#fff", fontWeight:600 }}>{title}</div><div style={{ fontSize:11, color:"#a0a0bc", marginTop:2, lineHeight:1.5 }}>{desc}</div></div>
             </div>
           ))}
-          <div style={{ marginTop:4, fontSize:10, color:"#525270", lineHeight:1.6 }}>
-            Once connected, every task alert (5-min warning, start, end) will be sent to your Telegram with the Telegram notification sound — even when RoutineFlow is minimised.
-          </div>
         </div>
       )}
     </div>
   );
 }
 
-// ─── Notification Settings Panel ─────────────────────────────────────────────
+// ─── Notification Settings Panel ──────────────────────────────────────────────
 function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
   const [testing, setTesting] = React.useState(null);
-  const isIos        = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isStandalone = window.navigator.standalone;
   const vol = (settings.volume ?? 70) / 100;
-
   const sounds = [
-    { id:'chime',    label:'🎵 Chime',    desc:'Gentle 3-tone melody' },
-    { id:'bell',     label:'🔔 Bell',     desc:'Double alert ring' },
+    { id:'chime', label:'🎵 Chime', desc:'Gentle 3-tone melody' },
+    { id:'bell', label:'🔔 Bell', desc:'Double alert ring' },
     { id:'ringtone', label:'📱 Ringtone', desc:'Classic phone ring' },
-    { id:'ping',     label:'✨ Ping',     desc:'Single soft note' },
+    { id:'ping', label:'✨ Ping', desc:'Single soft note' },
   ];
-
   const handleTest = (soundId) => {
-    setTesting(soundId);
-    RFSound.getCtx();
+    setTesting(soundId); RFSound.getCtx();
     setTimeout(() => { RFSound.play(soundId, vol); }, 50);
     setTimeout(() => setTesting(null), 1800);
   };
-
   const Toggle = ({ label, sublabel, value, onToggle, disabled }) => (
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 0", borderBottom:"1px solid #181830", opacity:disabled?0.4:1 }}>
       <div>
@@ -813,30 +587,17 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
       </div>
     </div>
   );
-
-  const now      = new Date();
+  const now = new Date();
   const todayStr = now.toLocaleDateString('en-CA', { timeZone: timezone });
-  const upcoming = (tasks||[])
-    .filter(t => t.startTime && taskAppliesToDate(t, todayStr))
-    .map(t => ({ ...t, ms: new Date(todayStr+'T'+t.startTime+':00') - now }))
-    .filter(t => t.ms > 0)
-    .sort((a,b) => a.ms - b.ms)[0];
-
-  const fmtCountdown = ms => {
-    const m = Math.ceil(ms/60000);
-    return m < 60 ? `${m}m` : `${Math.floor(m/60)}h ${m%60}m`;
-  };
-
+  const upcoming = (tasks||[]).filter(t => t.startTime && taskAppliesToDate(t, todayStr)).map(t => ({ ...t, ms: new Date(todayStr+'T'+t.startTime+':00') - now })).filter(t => t.ms > 0).sort((a,b) => a.ms - b.ms)[0];
+  const fmtCountdown = ms => { const m = Math.ceil(ms/60000); return m < 60 ? `${m}m` : `${Math.floor(m/60)}h ${m%60}m`; };
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", zIndex:1000, display:"flex", alignItems:"flex-end" }}
-      onClick={e => e.target === e.currentTarget && onClose()}>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", zIndex:1000, display:"flex", alignItems:"flex-end" }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ width:"100%", background:"#0e0e1d", borderRadius:"18px 18px 0 0", padding:"20px 18px 36px", maxHeight:"90vh", overflowY:"auto" }}>
-
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
           <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:700, color:"#fff" }}>🔔 Notifications & Sound</div>
           <button onClick={onClose} style={{ background:"none", border:"none", color:"#6e6e8a", fontSize:20, cursor:"pointer", padding:4, lineHeight:1 }}>✕</button>
         </div>
-
         {upcoming && settings.enabled && (
           <div style={{ background:"#0d1a0d", border:"1px solid #10b98133", borderRadius:9, padding:"10px 14px", marginBottom:16, display:"flex", alignItems:"center", gap:10 }}>
             <span style={{ fontSize:22 }}>⏰</span>
@@ -846,50 +607,29 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
             </div>
           </div>
         )}
-
-        {isIos && !isStandalone && (
-          <div style={{ background:"#1a1208", border:"1px solid #f9731644", borderRadius:9, padding:"10px 13px", marginBottom:16 }}>
-            <div style={{ fontSize:12, color:"#f97316", fontWeight:600, marginBottom:4 }}>📲 iPhone: Install app for lock screen alerts</div>
-            <div style={{ fontSize:11, color:"#a0a0bc", lineHeight:1.6 }}>
-              Tap <b style={{color:"#fff"}}>Share ↑</b> → <b style={{color:"#fff"}}>Add to Home Screen</b> → reopen from home screen. Sound works immediately when app is open.
-            </div>
-          </div>
-        )}
-
-        <Toggle label="Notifications & sounds enabled" sublabel="Master switch for all alerts"
-          value={settings.enabled} onToggle={() => onChange({...settings, enabled:!settings.enabled})} />
-        <Toggle label="5-minute warning" sublabel="Gentle chime 5 mins before task starts"
-          value={settings.fiveMin} onToggle={() => onChange({...settings, fiveMin:!settings.fiveMin})}
-          disabled={!settings.enabled} />
-        <Toggle label="Task starts" sublabel="Full alert sound when task begins"
-          value={settings.onStart} onToggle={() => onChange({...settings, onStart:!settings.onStart})}
-          disabled={!settings.enabled} />
-        <Toggle label="Task ends" sublabel="Soft ping when task is done"
-          value={settings.onEnd} onToggle={() => onChange({...settings, onEnd:!settings.onEnd})}
-          disabled={!settings.enabled} />
-
-        {/* Sound picker */}
+        <Toggle label="Notifications & sounds enabled" sublabel="Master switch for all alerts" value={settings.enabled} onToggle={() => onChange({...settings, enabled:!settings.enabled})} />
+        <Toggle label="5-minute warning" sublabel="Gentle chime 5 mins before task starts" value={settings.fiveMin} onToggle={() => onChange({...settings, fiveMin:!settings.fiveMin})} disabled={!settings.enabled} />
+        <Toggle label="Task starts" sublabel="Full alert sound when task begins" value={settings.onStart} onToggle={() => onChange({...settings, onStart:!settings.onStart})} disabled={!settings.enabled} />
+        <Toggle label="Task ends" sublabel="Soft ping when task is done" value={settings.onEnd} onToggle={() => onChange({...settings, onEnd:!settings.onEnd})} disabled={!settings.enabled} />
         <div style={{ marginTop:16, paddingBottom:14, borderBottom:"1px solid #181830", opacity:settings.enabled?1:0.4 }}>
           <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:12 }}>Alert Sound</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             {sounds.map(s => (
               <div key={s.id}
-                style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:settings.sound===s.id?"#f9731620":"#131328", border:`1px solid ${settings.sound===s.id?"#f97316":"#242444"}`, borderRadius:9, padding:"9px 11px", cursor:"pointer", transition:"all 0.15s" }}
+                style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:settings.sound===s.id?"#f9731620":"#131328", border:`1px solid ${settings.sound===s.id?"#f97316":"#242444"}`, borderRadius:9, padding:"9px 11px", cursor:"pointer" }}
                 onClick={() => settings.enabled && onChange({...settings, sound:s.id})}>
                 <div>
                   <div style={{ fontSize:12, color:settings.sound===s.id?"#f97316":"#e8e6f0", fontWeight:settings.sound===s.id?600:400 }}>{s.label}</div>
                   <div style={{ fontSize:10, color:"#6e6e8a", marginTop:2 }}>{s.desc}</div>
                 </div>
                 <button onClick={e => { e.stopPropagation(); handleTest(s.id); }}
-                  style={{ background:testing===s.id?"#10b981":"#1e1e38", border:`1px solid ${testing===s.id?"#10b981":"#2a2a45"}`, borderRadius:6, padding:"5px 9px", cursor:"pointer", color:testing===s.id?"#fff":"#a0a0bc", fontSize:13, flexShrink:0, transition:"all 0.2s" }}>
+                  style={{ background:testing===s.id?"#10b981":"#1e1e38", border:`1px solid ${testing===s.id?"#10b981":"#2a2a45"}`, borderRadius:6, padding:"5px 9px", cursor:"pointer", color:testing===s.id?"#fff":"#a0a0bc", fontSize:13, flexShrink:0 }}>
                   {testing===s.id ? "♪" : "▶"}
                 </button>
               </div>
             ))}
           </div>
         </div>
-
-        {/* Volume */}
         <div style={{ paddingTop:14, paddingBottom:14, borderBottom:"1px solid #181830", opacity:settings.enabled?1:0.4 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
             <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase" }}>Volume</div>
@@ -897,50 +637,20 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <span style={{ fontSize:16 }}>🔈</span>
-            <input type="range" min="10" max="100" step="5"
-              value={settings.volume ?? 70}
-              onChange={e => onChange({...settings, volume:parseInt(e.target.value)})}
-              style={{ flex:1, accentColor:"#f97316", cursor:"pointer" }} />
+            <input type="range" min="10" max="100" step="5" value={settings.volume ?? 70} onChange={e => onChange({...settings, volume:parseInt(e.target.value)})} style={{ flex:1, accentColor:"#f97316", cursor:"pointer" }} />
             <span style={{ fontSize:16 }}>🔊</span>
           </div>
         </div>
-
-        {/* ── Telegram Section ── */}
         <TelegramSettings />
-
         <div style={{ marginTop:14 }}>
-          <button onClick={onClose}
-            style={{ width:"100%", background:"#f97316", border:"none", borderRadius:10, padding:"13px", color:"#fff", fontSize:14, fontFamily:"inherit", cursor:"pointer", fontWeight:700 }}>
-            Save & Close
-          </button>
-        </div>
-
-        {/* How it works box */}
-        <div style={{ marginTop:14, background:"#131328", borderRadius:9, padding:"11px 13px" }}>
-          <div style={{ fontSize:11, color:"#a0a0bc", fontWeight:600, marginBottom:8 }}>How notifications work</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-            {[
-              ["✅", "App open",          "Custom sound plays + notification fires on time"],
-              ["✅", "App minimised",      "Telegram message fires with full sound on lock screen ✅"],
-              ["✅", "Telegram connected", "Alerts fire even if app is in background"],
-              ["⚠️", "App fully closed",  "Open app once each morning — alerts arm automatically"],
-            ].map(([icon, label, desc]) => (
-              <div key={label} style={{ display:"flex", gap:8, alignItems:"flex-start" }}>
-                <span style={{ fontSize:13, flexShrink:0 }}>{icon}</span>
-                <div>
-                  <span style={{ fontSize:11, color:"#e8e6f0", fontWeight:600 }}>{label}: </span>
-                  <span style={{ fontSize:11, color:"#6e6e8a" }}>{desc}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+          <button onClick={onClose} style={{ width:"100%", background:"#f97316", border:"none", borderRadius:10, padding:"13px", color:"#fff", fontSize:14, fontFamily:"inherit", cursor:"pointer", fontWeight:700 }}>Save & Close</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Auth Screen (Firebase) ───────────────────────────────────────────────────
+// ─── Auth Screen ──────────────────────────────────────────────────────────────
 function AuthScreen({ onAuth }) {
   const [mode,    setMode]    = useState("login");
   const [name,    setName]    = useState("");
@@ -953,29 +663,42 @@ function AuthScreen({ onAuth }) {
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  // ── Google Sign-In ──────────────────────────────────────────────────────────
+  // ── Handle Google redirect result on load ──────────────────────────────────
+  useEffect(() => {
+    if (!window._firebaseReady) return;
+    window._auth.getRedirectResult().then(result => {
+      if (result && result.user) {
+        console.log('[Auth] Google redirect sign-in successful');
+        // onAuthStateChanged in App handles the rest
+      }
+    }).catch(e => {
+      if (e.code && e.code !== 'auth/no-auth-event') {
+        setError(e.message || 'Google sign-in failed after redirect.');
+      }
+    });
+  }, []);
+
+  // ── Google Sign-In (redirect — works in Capacitor WebView) ────────────────
   const handleGoogle = async () => {
     setError(""); setLoading(true);
     try {
       const provider = new firebase.auth.GoogleAuthProvider();
-      const result   = await window._auth.signInWithPopup(provider);
-      const fbUser   = result.user;
-      // onAuthStateChanged in App will handle the rest
+      // signInWithRedirect works in Capacitor; signInWithPopup does not
+      await window._auth.signInWithRedirect(provider);
+      // App redirects to Google — when it comes back, getRedirectResult above fires
     } catch (e) {
       if (e.code === "auth/preview-mode") {
-        setError("⚠️ Firebase only works when hosted online (GitHub Pages). This preview cannot connect to Firebase. Upload the file to GitHub Pages and it will work fully.");
-      } else if (e.code === "auth/popup-closed-by-user") {
-        setError("Sign-in popup was closed. Please try again.");
+        setError("⚠️ Firebase only works when hosted online. Open via GitHub Pages for full functionality.");
       } else if (e.code === "auth/configuration-not-found" || e.code === "auth/invalid-api-key") {
-        setError("Firebase is not configured yet. Please paste your Firebase config into the HTML file first. See setup instructions below.");
+        setError("Firebase is not configured yet. Please paste your Firebase config into the HTML file.");
       } else {
         setError(e.message || "Google sign-in failed. Please try again.");
       }
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  // ── Email / Password ────────────────────────────────────────────────────────
+  // ── Email / Password ───────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setError("");
     if (!emailValid)        return setError("Please enter a valid email address.");
@@ -989,27 +712,22 @@ function AuthScreen({ onAuth }) {
       if (mode === "signup") {
         const cred = await window._auth.createUserWithEmailAndPassword(email.trim(), pass);
         await cred.user.updateProfile({ displayName: name.trim() });
-        // onAuthStateChanged in App picks this up automatically
       } else {
         await window._auth.signInWithEmailAndPassword(email.trim(), pass);
       }
     } catch (e) {
-      if (e.code === "auth/email-already-in-use")    setError("An account with this email already exists. Please sign in.");
-      else if (e.code === "auth/user-not-found")     setError("No account found with this email. Please sign up.");
-      else if (e.code === "auth/wrong-password")     setError("Incorrect password. Please try again.");
-      else if (e.code === "auth/invalid-credential") setError("Incorrect email or password. Please try again.");
+      if (e.code === "auth/email-already-in-use")    setError("An account with this email already exists.");
+      else if (e.code === "auth/user-not-found")     setError("No account found with this email.");
+      else if (e.code === "auth/wrong-password")     setError("Incorrect password.");
+      else if (e.code === "auth/invalid-credential") setError("Incorrect email or password.");
       else if (e.code === "auth/configuration-not-found" || e.code === "auth/invalid-api-key")
-        setError("Firebase is not configured yet. Please paste your Firebase config into the HTML file. See the setup guide.");
+        setError("Firebase is not configured yet.");
       else setError(e.message || "Something went wrong. Please try again.");
     }
     setLoading(false);
   };
 
-  const inputStyle = {
-    width:"100%", background:"#0f0f1e", border:"1px solid #242444", borderRadius:9,
-    padding:"13px 15px", color:"#fff", fontSize:14, fontFamily:"'DM Mono',monospace",
-    outline:"none", boxSizing:"border-box", transition:"border-color 0.2s"
-  };
+  const inputStyle = { width:"100%", background:"#0f0f1e", border:"1px solid #242444", borderRadius:9, padding:"13px 15px", color:"#fff", fontSize:14, fontFamily:"'DM Mono',monospace", outline:"none", boxSizing:"border-box" };
 
   return (
     <div style={{ minHeight:"100vh", background:"#080810", display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"'DM Mono',monospace" }}>
@@ -1020,18 +738,12 @@ function AuthScreen({ onAuth }) {
         @keyframes fadeUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
         .auth-card { animation: fadeUp 0.45s ease; }
       `}</style>
-
       <div className="auth-card" style={{ width:"100%", maxWidth:420 }}>
-        {/* Logo */}
         <div style={{ textAlign:"center", marginBottom:36 }}>
           <div style={{ fontFamily:"'Syne',sans-serif", fontSize:26, fontWeight:800, letterSpacing:"-0.5px", color:"#fff", marginBottom:6 }}>ROUTINEFLOW</div>
           <div style={{ fontSize:11, color:"#6e6e8a", letterSpacing:"2px", textTransform:"uppercase" }}>Build your best day, every day</div>
         </div>
-
-        {/* Card */}
         <div style={{ background:"#0e0e1d", border:"1px solid #1e1e38", borderRadius:16, padding:"32px 28px" }}>
-
-          {/* Mode toggle */}
           <div style={{ display:"flex", background:"#0a0a18", borderRadius:10, padding:4, marginBottom:24, border:"1px solid #1a1a30" }}>
             {["login","signup"].map(m => (
               <button key={m} onClick={() => { setMode(m); setError(""); }}
@@ -1040,78 +752,51 @@ function AuthScreen({ onAuth }) {
               </button>
             ))}
           </div>
-
-          {/* ── Google Sign-In button ── */}
           <button className="auth-btn-google" onClick={handleGoogle} disabled={loading}
-            style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"#ffffff", border:"2px solid #dadce0", borderRadius:9, padding:"12px 16px", color:"#3c4043", fontSize:14, fontFamily:"inherit", cursor:"pointer", marginBottom:18, transition:"all 0.2s", fontWeight:500 }}>
+            style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:10, background:"#ffffff", border:"2px solid #dadce0", borderRadius:9, padding:"12px 16px", color:"#3c4043", fontSize:14, fontFamily:"inherit", cursor:"pointer", marginBottom:18, fontWeight:500 }}>
             <svg width="20" height="20" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            {loading ? "Connecting…" : "Continue with Google"}
+            {loading ? "Redirecting to Google…" : "Continue with Google"}
           </button>
-
-          {/* Divider */}
           <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:18 }}>
             <div style={{ flex:1, height:1, background:"#1a1a30" }} />
             <span style={{ fontSize:11, color:"#525270", letterSpacing:"1px" }}>OR</span>
             <div style={{ flex:1, height:1, background:"#1a1a30" }} />
           </div>
-
-          {/* Fields */}
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             {mode === "signup" && (
               <div>
                 <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Full Name</div>
-                <input className="auth-input" style={inputStyle} type="text" placeholder="Your name"
-                  value={name} onChange={e => setName(e.target.value)}
-                  onKeyDown={e => e.key==="Enter" && handleSubmit()} />
+                <input className="auth-input" style={inputStyle} type="text" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key==="Enter" && handleSubmit()} />
               </div>
             )}
             <div>
               <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Email</div>
-              <input className="auth-input" style={inputStyle} type="email" placeholder="you@example.com"
-                value={email} onChange={e => setEmail(e.target.value)}
-                onKeyDown={e => e.key==="Enter" && handleSubmit()} />
+              <input className="auth-input" style={inputStyle} type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key==="Enter" && handleSubmit()} />
             </div>
             <div>
               <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Password</div>
               <div style={{ position:"relative" }}>
-                <input className="auth-input" style={inputStyle} type={showPw?"text":"password"} placeholder="Min. 6 characters"
-                  value={pass} onChange={e => setPass(e.target.value)}
-                  onKeyDown={e => e.key==="Enter" && handleSubmit()} />
-                <button onClick={() => setShowPw(o=>!o)}
-                  style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#6e6e8a", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>
-                  {showPw ? "HIDE" : "SHOW"}
-                </button>
+                <input className="auth-input" style={inputStyle} type={showPw?"text":"password"} placeholder="Min. 6 characters" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => e.key==="Enter" && handleSubmit()} />
+                <button onClick={() => setShowPw(o=>!o)} style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#6e6e8a", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{showPw ? "HIDE" : "SHOW"}</button>
               </div>
             </div>
             {mode === "signup" && (
               <div>
                 <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Confirm Password</div>
-                <input className="auth-input" style={inputStyle} type={showPw?"text":"password"} placeholder="Repeat password"
-                  value={confirm} onChange={e => setConfirm(e.target.value)}
-                  onKeyDown={e => e.key==="Enter" && handleSubmit()} />
+                <input className="auth-input" style={inputStyle} type={showPw?"text":"password"} placeholder="Repeat password" value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => e.key==="Enter" && handleSubmit()} />
               </div>
             )}
           </div>
-
-          {/* Error */}
-          {error && (
-            <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:8, padding:"10px 13px", marginTop:14, fontSize:12, color:"#f87090", lineHeight:1.6 }}>
-              {error}
-            </div>
-          )}
-
-          {/* Submit */}
+          {error && <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:8, padding:"10px 13px", marginTop:14, fontSize:12, color:"#f87090", lineHeight:1.6 }}>{error}</div>}
           <button onClick={handleSubmit} disabled={loading}
-            style={{ width:"100%", marginTop:18, padding:"13px", background:loading?"#7a3a10":"#f97316", border:"none", borderRadius:9, color:"#fff", fontSize:13, fontFamily:"inherit", fontWeight:500, letterSpacing:"1px", cursor:loading?"not-allowed":"pointer", transition:"background 0.2s", textTransform:"uppercase" }}>
+            style={{ width:"100%", marginTop:18, padding:"13px", background:loading?"#7a3a10":"#f97316", border:"none", borderRadius:9, color:"#fff", fontSize:13, fontFamily:"inherit", fontWeight:500, letterSpacing:"1px", cursor:loading?"not-allowed":"pointer", textTransform:"uppercase" }}>
             {loading ? "Please wait…" : mode === "login" ? "Sign In →" : "Create Account →"}
           </button>
-
-          {/* Switch mode */}
           <div style={{ textAlign:"center", marginTop:18, fontSize:12, color:"#6e6e8a" }}>
             {mode === "login"
               ? <>Don't have an account? <span onClick={() => { setMode("signup"); setError(""); }} style={{ color:"#f97316", cursor:"pointer" }}>Sign up free</span></>
@@ -1119,11 +804,8 @@ function AuthScreen({ onAuth }) {
             }
           </div>
         </div>
-
         <div style={{ textAlign:"center", marginTop:20, fontSize:10, color:"#525270", lineHeight:1.7 }}>
-          {window._firebaseReady
-            ? "Secured by Firebase · Data synced across all your devices"
-            : "⚠️ Preview mode — Firebase requires GitHub Pages to work. Upload to GitHub Pages for full functionality."}
+          {window._firebaseReady ? "Secured by Firebase · Data synced across all your devices" : "⚠️ Preview mode — Firebase requires hosting to work fully."}
         </div>
       </div>
     </div>
@@ -1145,47 +827,24 @@ function App() {
   const [user,         setUser]         = useState(null);
   const [authChecked,  setAuthChecked]  = useState(false);
   const clock = useClock(timezone);
-
   const [syncReady, setSyncReady] = useState(false);
 
-  // ── Notification state ───────────────────────────────────────────────────────
   const defaultNotifSettings = { enabled:true, fiveMin:true, onStart:true, onEnd:false, sound:'bell', volume:80 };
   const [notifPermission,  setNotifPermission]  = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
-  const [notifSettings,    setNotifSettings]    = useState(() => {
-    try { return JSON.parse(localStorage.getItem('rf_notif_settings')) || defaultNotifSettings; } catch { return defaultNotifSettings; }
-  });
+  const [notifSettings,    setNotifSettings]    = useState(() => { try { return JSON.parse(localStorage.getItem('rf_notif_settings')) || defaultNotifSettings; } catch { return defaultNotifSettings; } });
   const [showNotifBanner,  setShowNotifBanner]  = useState(false);
   const [showNotifPanel,   setShowNotifPanel]   = useState(false);
 
-  // Show permission banner after login if not yet decided
+  useEffect(() => { if (user && notifPermission === 'default') { const dismissed = localStorage.getItem('rf_notif_dismissed'); if (!dismissed) setTimeout(() => setShowNotifBanner(true), 2000); } }, [user]);
+  useEffect(() => { localStorage.setItem('rf_notif_settings', JSON.stringify(notifSettings)); }, [notifSettings]);
   useEffect(() => {
-    if (user && notifPermission === 'default') {
-      const dismissed = localStorage.getItem('rf_notif_dismissed');
-      if (!dismissed) setTimeout(() => setShowNotifBanner(true), 2000);
-    }
-  }, [user]);
-
-  // Save settings to localStorage
-  useEffect(() => {
-    localStorage.setItem('rf_notif_settings', JSON.stringify(notifSettings));
-  }, [notifSettings]);
-
-  // Re-arm schedule when app comes back to foreground after being minimised
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && user && notifSettings.enabled) {
-        // Small delay to let React state settle
-        setTimeout(() => RFNotify.rearmFromStorage(), 300);
-      }
-    };
+    const handleVisibility = () => { if (document.visibilityState === 'visible' && user && notifSettings.enabled) setTimeout(() => RFNotify.rearmFromStorage(), 300); };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [user, notifSettings.enabled]);
 
-  // tkey must be defined before the scheduling useEffect below
   const tkey = todayKey(timezone);
 
-  // Re-schedule whenever tasks, timezone or settings change
   useEffect(() => {
     if (!user || !syncReady) return;
     const todayTasks2 = tasks.filter(t => taskAppliesToDate(t, tkey));
@@ -1193,66 +852,37 @@ function App() {
     return () => RFNotify.clearAll();
   }, [tasks, timezone, notifSettings, user, syncReady]);
 
-  // ── Firebase Auth state listener ────────────────────────────────────────────
   useEffect(() => {
     const unsubscribe = window._auth.onAuthStateChanged(async (fbUser) => {
-      setSyncReady(false); // block saves during load
+      setSyncReady(false);
       if (fbUser) {
         const displayName = fbUser.displayName || fbUser.email.split("@")[0];
         setUser({ name: displayName, email: fbUser.email, uid: fbUser.uid });
         store.setUid(fbUser.uid);
-
-        // Load all user data from Firestore
         let t, l, g, tz;
-        try {
-          [t, l, g, tz] = await Promise.all([
-            store.get("rf_tasks"),
-            store.get("rf_logs"),
-            store.get("rf_goals"),
-            store.get("rf_tz"),
-          ]);
-        } catch(e) {
-          console.warn("Firestore read failed:", e);
-        }
-
-        // Only update state if Firestore returned data
-        // This prevents DEFAULT_TASKS from overwriting real data on a new device
-        if (t)  setTasks(t);
-        if (l)  setLogs(l);
-        if (g)  setGoals(g);
-        if (tz) setTimezone(tz);
-
+        try { [t, l, g, tz] = await Promise.all([store.get("rf_tasks"), store.get("rf_logs"), store.get("rf_goals"), store.get("rf_tz")]); } catch(e) {}
+        if (t) setTasks(t); if (l) setLogs(l); if (g) setGoals(g); if (tz) setTimezone(tz);
       } else {
-        setUser(null);
-        store.setUid(null);
-        setTasks(DEFAULT_TASKS);
-        setLogs({});
-        setGoals([]);
-        setTimezone("Europe/Berlin");
+        setUser(null); store.setUid(null);
+        setTasks(DEFAULT_TASKS); setLogs({}); setGoals([]); setTimezone("Europe/Berlin");
       }
-      setLoaded(true);
-      setAuthChecked(true);
-      // Allow saves only AFTER initial load is complete
+      setLoaded(true); setAuthChecked(true);
       setTimeout(() => setSyncReady(true), 500);
     });
     return () => unsubscribe();
   }, []);
 
-  // ── Sync data to Firestore — only after initial load confirmed ───────────────
-  useEffect(() => { if (syncReady && user) store.set("rf_tasks", tasks);    }, [tasks,    syncReady, user]);
-  useEffect(() => { if (syncReady && user) store.set("rf_logs",  logs);     }, [logs,     syncReady, user]);
-  useEffect(() => { if (syncReady && user) store.set("rf_goals", goals);    }, [goals,    syncReady, user]);
-  useEffect(() => { if (syncReady && user) store.set("rf_tz",    timezone); }, [timezone, syncReady, user]);
+  useEffect(() => { if (syncReady && user) store.set("rf_tasks", tasks); }, [tasks, syncReady, user]);
+  useEffect(() => { if (syncReady && user) store.set("rf_logs",  logs);  }, [logs,  syncReady, user]);
+  useEffect(() => { if (syncReady && user) store.set("rf_goals", goals); }, [goals, syncReady, user]);
+  useEffect(() => { if (syncReady && user) store.set("rf_tz", timezone); }, [timezone, syncReady, user]);
 
-  const viewKey     = selectedDate || tkey;
-
-  const viewTasks   = tasks.filter(t => taskAppliesToDate(t, viewKey)).sort((a,b) => (a.startTime||"00:00").localeCompare(b.startTime||"00:00"));
-  const viewLog     = logs[viewKey] || {};
+  const viewKey        = selectedDate || tkey;
+  const viewTasks      = tasks.filter(t => taskAppliesToDate(t, viewKey)).sort((a,b) => (a.startTime||"00:00").localeCompare(b.startTime||"00:00"));
+  const viewLog        = logs[viewKey] || {};
   const completedToday = viewTasks.filter(t => viewLog[t.id]).length;
   const totalToday     = viewTasks.length;
   const pct            = totalToday ? Math.round((completedToday / totalToday) * 100) : 0;
-
-  // Today's real stats for header streak/pct (always today, not viewKey)
   const todayTasks     = tasks.filter(t => taskAppliesToDate(t, tkey));
   const todayLog       = logs[tkey] || {};
   const todayPct       = todayTasks.length ? Math.round(todayTasks.filter(t=>todayLog[t.id]).length / todayTasks.length * 100) : 0;
@@ -1262,29 +892,23 @@ function App() {
     const dkey  = dateKey || tkey;
     const wasOn = !!(logs[dkey]?.[taskId]);
     const nowOn = !wasOn;
-
     setLogs(prev => ({ ...prev, [dkey]: { ...(prev[dkey]||{}), [taskId]: nowOn } }));
-
-    // Only update milestone if toggling on today's date (avoids double-counting)
     if (dkey === tkey && task?.linkedMilestone?.goalId && task?.linkedMilestone?.milestoneId) {
       const { goalId, milestoneId } = task.linkedMilestone;
       setGoals(prev => prev.map(g => {
         if (g.id !== goalId) return g;
-        const milestones = (g.milestones || []).map(m =>
-          m.id === milestoneId ? { ...m, done: nowOn } : m
-        );
+        const milestones = (g.milestones || []).map(m => m.id === milestoneId ? { ...m, done: nowOn } : m);
         return { ...g, milestones, current: milestones.filter(m => m.done).length };
       }));
     }
   }, [tkey, tasks, logs]);
 
   const streak = (() => {
-    let s = 0;
-    const d = new Date();
+    let s = 0; const d = new Date();
     for (let i = 0; i < 366; i++) {
-      const key        = d.toLocaleDateString("en-CA", { timeZone: timezone });
+      const key = d.toLocaleDateString("en-CA", { timeZone: timezone });
       const applicable = tasks.filter(t => taskAppliesToDate(t, key));
-      const done       = applicable.filter(t => (logs[key]||{})[t.id]).length;
+      const done = applicable.filter(t => (logs[key]||{})[t.id]).length;
       if (done === 0 && key !== tkey) break;
       if (done > 0) s++;
       d.setDate(d.getDate() - 1);
@@ -1294,15 +918,13 @@ function App() {
 
   const tzLabel = TIMEZONES.find(t => t.tz === timezone)?.label || timezone;
   const tabs = [
-    { id:"today",   label:"Schedule",  icon:"list"     },
+    { id:"today",   label:"Schedule", icon:"list"     },
     { id:"history", label:"Calendar", icon:"calendar" },
     { id:"stats",   label:"Stats",    icon:"chart"    },
     { id:"goals",   label:"Goals",    icon:"target"   },
   ];
-
   const handleLogout = () => window._auth.signOut();
 
-  // Loading splash
   if (!authChecked) return (
     <div style={{ minHeight:"100vh", background:"#080810", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Mono',monospace" }}>
       <div style={{ textAlign:"center" }}>
@@ -1312,10 +934,8 @@ function App() {
     </div>
   );
 
-  // Auth gate
   if (!user) return <AuthScreen />;
 
-  // Avatar initials
   const initials = (user.name || user.email).split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
 
   return (
@@ -1323,118 +943,65 @@ function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap');
         *{box-sizing:border-box;margin:0;padding:0}
-        ::-webkit-scrollbar{width:4px}
-        ::-webkit-scrollbar-track{background:#080810}
-        ::-webkit-scrollbar-thumb{background:#232340;border-radius:2px}
-        .task-row{transition:background 0.18s}
-        .task-row:hover{background:#0e0e20!important}
-        .tab-btn{transition:color 0.18s,border-color 0.18s}
-        .tab-btn:hover{color:#fff!important}
+        ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:#080810} ::-webkit-scrollbar-thumb{background:#232340;border-radius:2px}
+        .task-row{transition:background 0.18s} .task-row:hover{background:#0e0e20!important}
+        .tab-btn{transition:color 0.18s,border-color 0.18s} .tab-btn:hover{color:#fff!important}
         .btn-glow:hover{box-shadow:0 0 18px rgba(249,115,22,0.35)}
-        .day-cell{transition:transform 0.13s;cursor:pointer}
-        .day-cell:hover{transform:scale(1.1)}
         input,select,textarea{font-family:'DM Mono',monospace!important}
         .progress-bar{transition:width 1s cubic-bezier(0.4,0,0.2,1)}
         .fade-in{animation:fadeIn 0.28s ease}
         @keyframes fadeIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
         .tz-drop{position:absolute;top:calc(100% + 6px);right:0;background:#0c0c1a;border:1px solid #242444;border-radius:10px;padding:6px;z-index:400;min-width:195px;max-height:270px;overflow-y:auto;box-shadow:0 10px 36px rgba(0,0,0,0.55)}
         .tz-item{padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:#c0bdd8;transition:background 0.13s,color 0.13s;display:flex;justify-content:space-between;align-items:center}
-        .tz-item:hover{background:#1a1a30;color:#fff}
-        .tz-item.sel{background:#f97316;color:#fff;font-weight:500}
+        .tz-item:hover{background:#1a1a30;color:#fff} .tz-item.sel{background:#f97316;color:#fff;font-weight:500}
         .chip{padding:5px 11px;border-radius:20px;border:1px solid #2a2a48;font-size:11px;cursor:pointer;transition:all 0.13s;background:transparent;color:#b0b0c8;font-family:'DM Mono',monospace;letter-spacing:.5px}
-        .chip.on{background:#f97316;border-color:#f97316;color:#fff}
-        .chip:hover:not(.on){border-color:#f97316;color:#f97316}
+        .chip.on{background:#f97316;border-color:#f97316;color:#fff} .chip:hover:not(.on){border-color:#f97316;color:#f97316}
         .dchip{width:32px;height:32px;border-radius:6px;border:1px solid #2a2a48;font-size:11px;cursor:pointer;transition:all 0.13s;background:transparent;color:#b0b0c8;font-family:'DM Mono',monospace;display:flex;align-items:center;justify-content:center}
-        .dchip.on{background:#f97316;border-color:#f97316;color:#fff}
-        .dchip:hover:not(.on){border-color:#f97316;color:#f97316}
+        .dchip.on{background:#f97316;border-color:#f97316;color:#fff} .dchip:hover:not(.on){border-color:#f97316;color:#f97316}
         .now-pill{display:inline-flex;align-items:center;margin-left:8px;font-size:10px;color:#f97316;background:#f9731622;padding:2px 7px;border-radius:3px;letter-spacing:.8px;animation:pulse 2s ease-in-out infinite}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
         .shimmer-bar{background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);background-size:200% 100%;animation:shimmer 1.8s infinite}
         @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-        .ms-row{transition:background 0.15s;border-radius:8px}
-        .ms-row:hover{background:#12122a!important}
-        .ms-done{text-decoration:line-through;color:#a0a0bc!important}
+        .ms-row{transition:background 0.15s;border-radius:8px} .ms-row:hover{background:#12122a!important}
         .goal-card{transition:border-color 0.2s}
-        .link-option{padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:#c0bdd8;transition:background 0.13s}
-        .link-option:hover{background:#1a1a30}
-        .link-option.sel{background:#f9731620;color:#f97316;border:1px solid #f9731640}
         .overdue-badge{display:inline-flex;align-items:center;gap:3px;background:#f43f5e22;color:#f43f5e;border:1px solid #f43f5e44;border-radius:4px;padding:2px 7px;font-size:9px;letter-spacing:1px;text-transform:uppercase;font-weight:500}
-        .ms-overdue{border-color:#f43f5e44!important;background:#120a0a!important}
         .ms-progress-track{background:#13132a;border-radius:3px;height:4px;overflow:hidden;margin-top:7px}
-        .heat-cell{border-radius:4px;transition:transform 0.1s;cursor:default}
-        .heat-cell:hover{transform:scale(1.15)}
+        .heat-cell{border-radius:4px;transition:transform 0.1s;cursor:default} .heat-cell:hover{transform:scale(1.15)}
       `}</style>
 
-      {/* ── Header — designed for iPhone 13 Pro (390px) ── */}
       <div style={{ borderBottom:"1px solid #181830", background:"#0b0b18" }}>
-
-        {/* ── Row 1: Logo  ←→  Avatar · SYNC · OUT ── */}
-        {/* Max content: ~148px logo + flex spacer + ~120px controls = always fits 390px */}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"11px 14px 6px" }}>
-
-          {/* Logo */}
           <div>
             <div style={{ fontFamily:"'Syne',sans-serif", fontSize:19, fontWeight:800, letterSpacing:"-0.5px", color:"#fff", lineHeight:1 }}>ROUTINEFLOW</div>
             <div style={{ fontSize:9, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginTop:3 }}>
               {new Date().toLocaleDateString("en-GB",{ timeZone:timezone, weekday:"short", day:"numeric", month:"short" })}
             </div>
           </div>
-
-          {/* Controls — Avatar · Bell · SYNC · OUT */}
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-
-            {/* Avatar circle */}
-            <div title={user.email}
-              style={{ width:30, height:30, borderRadius:"50%", background:"linear-gradient(135deg,#f97316,#f43f5e)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0, letterSpacing:".5px" }}>
-              {initials}
-            </div>
-
-            {/* Bell — notification toggle */}
+            <div title={user.email} style={{ width:30, height:30, borderRadius:"50%", background:"linear-gradient(135deg,#f97316,#f43f5e)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0 }}>{initials}</div>
             <button onClick={() => notifPermission==='granted' ? setShowNotifPanel(true) : setShowNotifBanner(true)}
-              title="Notification settings"
-              style={{ flexShrink:0, background: notifPermission==='granted' && notifSettings.enabled ? "#10b98114":"#1a1a2e", border:`1px solid ${notifPermission==='granted' && notifSettings.enabled ? "#10b98155":"#252545"}`, borderRadius:7, padding:"4px 8px", cursor:"pointer", fontSize:15, transition:"all 0.2s" }}>
+              style={{ flexShrink:0, background: notifPermission==='granted' && notifSettings.enabled ? "#10b98114":"#1a1a2e", border:`1px solid ${notifPermission==='granted' && notifSettings.enabled ? "#10b98155":"#252545"}`, borderRadius:7, padding:"4px 8px", cursor:"pointer", fontSize:15 }}>
               {notifPermission==='granted' && notifSettings.enabled ? "🔔" : "🔕"}
             </button>
-
-            {/* SYNC — tappable cloud reload */}
-            <button
-              title={syncReady ? "Tap to reload data from cloud" : "Loading…"}
+            <button title={syncReady ? "Tap to reload" : "Loading…"}
               onClick={async () => {
-                if (!user) return;
-                setSyncReady(false);
-                store.setUid(user.uid);
-                try {
-                  const [t, l, g, tz] = await Promise.all([
-                    store.get("rf_tasks"), store.get("rf_logs"),
-                    store.get("rf_goals"), store.get("rf_tz"),
-                  ]);
-                  if (t) setTasks(t); if (l) setLogs(l);
-                  if (g) setGoals(g); if (tz) setTimezone(tz);
-                } catch(e) { console.warn("Sync failed:", e); }
+                if (!user) return; setSyncReady(false); store.setUid(user.uid);
+                try { const [t,l,g,tz] = await Promise.all([store.get("rf_tasks"),store.get("rf_logs"),store.get("rf_goals"),store.get("rf_tz")]); if(t)setTasks(t);if(l)setLogs(l);if(g)setGoals(g);if(tz)setTimezone(tz); } catch(e){}
                 setTimeout(() => setSyncReady(true), 500);
               }}
-              style={{ display:"flex", alignItems:"center", gap:5, background:syncReady?"#10b98114":"#f9731614", border:`1px solid ${syncReady?"#10b98155":"#f9731655"}`, borderRadius:7, padding:"5px 10px", cursor:"pointer", fontFamily:"inherit", transition:"all 0.2s", flexShrink:0 }}>
+              style={{ display:"flex", alignItems:"center", gap:5, background:syncReady?"#10b98114":"#f9731614", border:`1px solid ${syncReady?"#10b98155":"#f9731655"}`, borderRadius:7, padding:"5px 10px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
               <span style={{ fontSize:12 }}>{syncReady ? "☁" : "↻"}</span>
-              <span style={{ fontSize:9, fontWeight:600, color:syncReady?"#10b981":"#f97316", letterSpacing:".5px" }}>
-                {syncReady ? "SYNC" : "…"}
-              </span>
+              <span style={{ fontSize:9, fontWeight:600, color:syncReady?"#10b981":"#f97316", letterSpacing:".5px" }}>{syncReady ? "SYNC" : "…"}</span>
             </button>
-
-            {/* OUT */}
-            <button onClick={handleLogout} title="Sign out"
-              style={{ display:"flex", alignItems:"center", background:"none", border:"1px solid #2a2a45", borderRadius:7, padding:"5px 10px", color:"#6e6e8a", fontSize:9, fontWeight:600, fontFamily:"inherit", cursor:"pointer", letterSpacing:".5px", transition:"all 0.15s", flexShrink:0 }}
+            <button onClick={handleLogout}
+              style={{ display:"flex", alignItems:"center", background:"none", border:"1px solid #2a2a45", borderRadius:7, padding:"5px 10px", color:"#6e6e8a", fontSize:9, fontWeight:600, fontFamily:"inherit", cursor:"pointer", letterSpacing:".5px", flexShrink:0 }}
               onMouseEnter={e=>{e.currentTarget.style.color="#f43f5e";e.currentTarget.style.borderColor="#f43f5e55";}}
               onMouseLeave={e=>{e.currentTarget.style.color="#6e6e8a";e.currentTarget.style.borderColor="#2a2a45";}}>
               OUT
             </button>
           </div>
         </div>
-
-        {/* ── Row 2: Clock · Streak · Today% ── */}
-        {/* Clock takes flex:1, streak and today% take fixed space — fits 390px comfortably */}
         <div style={{ display:"flex", alignItems:"center", gap:8, padding:"0 14px 11px" }}>
-
-          {/* Clock + TZ — stretches to fill */}
           <div style={{ position:"relative", flex:1, minWidth:0 }}>
             <button onClick={() => setTzOpen(o => !o)}
               style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", background:"#0f0f1e", border:"1px solid #1e1e38", borderRadius:8, padding:"7px 11px", outline:"none", color:"inherit", fontFamily:"inherit", width:"100%" }}>
@@ -1447,72 +1014,36 @@ function App() {
               <div className="tz-drop">
                 <div style={{ fontSize:9, color:"#a0a0bc", letterSpacing:"2px", padding:"4px 12px 8px", textTransform:"uppercase" }}>Timezone</div>
                 {TIMEZONES.map(t => (
-                  <div key={t.tz} className={`tz-item${timezone===t.tz?" sel":""}`}
-                    onClick={() => { setTimezone(t.tz); setTzOpen(false); }}>
+                  <div key={t.tz} className={`tz-item${timezone===t.tz?" sel":""}`} onClick={() => { setTimezone(t.tz); setTzOpen(false); }}>
                     <span>{t.label}</span>
-                    <span style={{ fontSize:10, opacity:.65, fontVariantNumeric:"tabular-nums" }}>
-                      {new Date().toLocaleTimeString("en-GB",{ timeZone:t.tz, hour:"2-digit", minute:"2-digit" })}
-                    </span>
+                    <span style={{ fontSize:10, opacity:.65, fontVariantNumeric:"tabular-nums" }}>{new Date().toLocaleTimeString("en-GB",{ timeZone:t.tz, hour:"2-digit", minute:"2-digit" })}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
-
-          {/* Divider */}
           <div style={{ width:1, height:22, background:"#252540", flexShrink:0 }} />
-
-          {/* Streak */}
           <div style={{ textAlign:"center", flexShrink:0 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:3, color:"#f97316", fontWeight:600, fontSize:13, lineHeight:1 }}>
-              <Icon name="flame" size={12} />{streak}
-            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:3, color:"#f97316", fontWeight:600, fontSize:13, lineHeight:1 }}><Icon name="flame" size={12} />{streak}</div>
             <div style={{ fontSize:8, color:"#6e6e8a", letterSpacing:"1px", marginTop:2 }}>STREAK</div>
           </div>
-
-          {/* Divider */}
           <div style={{ width:1, height:22, background:"#252540", flexShrink:0 }} />
-
-          {/* Today % */}
           <div style={{ textAlign:"center", flexShrink:0 }}>
             <div style={{ color:"#fff", fontWeight:600, fontSize:13, lineHeight:1 }}>{todayPct}%</div>
             <div style={{ fontSize:8, color:"#6e6e8a", letterSpacing:"1px", marginTop:2 }}>TODAY</div>
           </div>
-
         </div>
       </div>
 
-      {/* Backdrop to close TZ dropdown */}
       {tzOpen && <div style={{ position:"fixed", inset:0, zIndex:399 }} onClick={() => setTzOpen(false)} />}
 
-      {/* Notification permission banner */}
       {showNotifBanner && notifPermission !== 'granted' && (
         <div style={{ maxWidth:720, margin:"12px auto 0", padding:"0 15px" }}>
-          <NotifBanner
-            onGranted={() => {
-              setNotifPermission('granted');
-              setShowNotifBanner(false);
-            }}
-            onDismiss={() => {
-              setShowNotifBanner(false);
-              localStorage.setItem('rf_notif_dismissed', '1');
-            }}
-          />
+          <NotifBanner onGranted={() => { setNotifPermission('granted'); setShowNotifBanner(false); }} onDismiss={() => { setShowNotifBanner(false); localStorage.setItem('rf_notif_dismissed', '1'); }} />
         </div>
       )}
+      {showNotifPanel && <NotifSettings settings={notifSettings} onChange={s => setNotifSettings(s)} onClose={() => setShowNotifPanel(false)} tasks={tasks} timezone={timezone} />}
 
-      {/* Notification settings panel */}
-      {showNotifPanel && (
-        <NotifSettings
-          settings={notifSettings}
-          onChange={s => setNotifSettings(s)}
-          onClose={() => setShowNotifPanel(false)}
-          tasks={tasks}
-          timezone={timezone}
-        />
-      )}
-
-      {/* ── Tabs ── */}
       <div style={{ display:"flex", borderBottom:"1px solid #181830", background:"#0b0b18", padding:"0 18px", overflowX:"auto" }}>
         {tabs.map(t => (
           <button key={t.id} className="tab-btn" onClick={() => setTab(t.id)}
@@ -1522,7 +1053,6 @@ function App() {
         ))}
       </div>
 
-      {/* ── Main Content ── */}
       <div style={{ maxWidth:720, margin:"0 auto", padding:"18px 15px" }} className="fade-in" key={tab}>
         {tab==="today"   && <TodayView tasks={viewTasks} allTasks={tasks} viewLog={viewLog} viewKey={viewKey} todayKey={tkey} selectedDate={selectedDate} setSelectedDate={setSelectedDate} toggleTask={toggleTask} completedToday={completedToday} totalToday={totalToday} pct={pct} onAddTask={() => setModal("task")} onEditTask={t => { setEditTask(t); setModal("task"); }} onDeleteTask={id => setTasks(p => p.filter(t => t.id!==id))} timezone={timezone} goals={goals} />}
         {tab==="history" && <HistoryView tasks={tasks} logs={logs} timezone={timezone} setSelectedDate={setSelectedDate} setTab={setTab} />}
@@ -1530,18 +1060,7 @@ function App() {
         {tab==="goals"   && <GoalsView goals={goals} setGoals={setGoals} onAdd={() => setModal("goal")} />}
       </div>
 
-      {/* ── Modals ── */}
-      {modal==="task" && (
-        <TaskModal
-          key={editTask?.id || "new"}
-          onClose={() => { setModal(null); setEditTask(null); }}
-          onSave={t => { setTasks(p => resolveOverlaps(editTask ? p.map(x => x.id===editTask.id ? t : x) : [...p, t])); setModal(null); setEditTask(null); }}
-          colorOptions={COLORS}
-          initial={editTask}
-          allTasks={tasks}
-          goals={goals}
-        />
-      )}
+      {modal==="task" && <TaskModal key={editTask?.id || "new"} onClose={() => { setModal(null); setEditTask(null); }} onSave={t => { setTasks(p => resolveOverlaps(editTask ? p.map(x => x.id===editTask.id ? t : x) : [...p, t])); setModal(null); setEditTask(null); }} colorOptions={COLORS} initial={editTask} allTasks={tasks} goals={goals} />}
       {modal==="goal" && <GoalModal onClose={() => setModal(null)} onSave={g => { setGoals(p => [...p, g]); setModal(null); }} />}
     </div>
   );
@@ -1551,230 +1070,103 @@ function App() {
 function TodayView({ tasks, allTasks, viewLog, viewKey, todayKey, selectedDate, setSelectedDate, toggleTask, completedToday, totalToday, pct, onAddTask, onEditTask, onDeleteTask, timezone, goals }) {
   const doneMins  = tasks.filter(t => viewLog[t.id]).reduce((s,t) => s+t.duration, 0);
   const totalMins = tasks.reduce((s,t) => s+t.duration, 0);
+  const isToday   = viewKey === todayKey;
+  const isFuture  = viewKey > todayKey;
+  const isPast    = viewKey < todayKey;
 
-  const isToday    = viewKey === todayKey;
-  const isFuture   = viewKey > todayKey;
-  const isPast     = viewKey < todayKey;
-
-  // Date navigation helpers
   const shiftDate = (delta) => {
-    const d = new Date(viewKey + "T00:00:00");
-    d.setDate(d.getDate() + delta);
+    const d = new Date(viewKey + "T00:00:00"); d.setDate(d.getDate() + delta);
     const next = d.toLocaleDateString("en-CA");
     setSelectedDate(next === todayKey ? null : next);
   };
 
   const dateLabel = (() => {
     if (isToday) return "TODAY";
-    const d = new Date(viewKey + "T00:00:00");
-    const t = new Date(todayKey + "T00:00:00");
+    const d = new Date(viewKey + "T00:00:00"); const t = new Date(todayKey + "T00:00:00");
     const diff = Math.round((d - t) / 864e5);
-    if (diff === 1)  return "TOMORROW";
-    if (diff === -1) return "YESTERDAY";
+    if (diff === 1) return "TOMORROW"; if (diff === -1) return "YESTERDAY";
     return d.toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", year:"numeric" }).toUpperCase();
   })();
 
-  const fullDateDisplay = (() => {
-    const d = new Date(viewKey + "T00:00:00");
-    return d.toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
-  })();
-
-  const fmtTime12 = t => {
-    if (!t) return null;
-    const [h, m] = t.split(":").map(Number);
-    return `${h%12||12}:${String(m).padStart(2,"0")} ${h>=12?"PM":"AM"}`;
-  };
-
-  const repeatLabel = r => {
-    if (!r || r.type==="daily") return "Every day";
-    if (r.type==="weekdays")   return r.days?.length ? r.days.map(d=>WEEKDAYS[d]).join(", ") : "No days";
-    if (r.type==="monthDates") return r.dates?.length ? r.dates.sort((a,b)=>a-b).map(ordinal).join(", ") : "No dates";
-    return "";
-  };
-
+  const fullDateDisplay = (() => { const d = new Date(viewKey + "T00:00:00"); return d.toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric" }); })();
   const nowMins = (() => { const n = new Date(); return n.getHours()*60+n.getMinutes(); })();
 
   return (
     <div>
-
-      {/* ── Date Navigator ── */}
       <div style={{ background:"#0e0e1d", border:"1px solid #181830", borderRadius:12, padding:"12px 16px", marginBottom:14, display:"flex", alignItems:"center", gap:10 }}>
-        {/* Prev */}
-        <button onClick={() => shiftDate(-1)}
-          style={{ background:"#13132a", border:"1px solid #525270", borderRadius:7, padding:"7px 11px", color:"#c0bdd8", cursor:"pointer", display:"flex", alignItems:"center", fontSize:14, flexShrink:0, lineHeight:1 }}>
-          ‹
-        </button>
-
-        {/* Date display + picker */}
+        <button onClick={() => shiftDate(-1)} style={{ background:"#13132a", border:"1px solid #525270", borderRadius:7, padding:"7px 11px", color:"#c0bdd8", cursor:"pointer", fontSize:14, flexShrink:0, lineHeight:1 }}>‹</button>
         <div style={{ flex:1, textAlign:"center", position:"relative" }}>
-          <div style={{ fontSize:11, letterSpacing:"2px", color: isFuture?"#3b82f6": isPast?"#b0b0c8":"#f97316", textTransform:"uppercase", fontWeight:600, marginBottom:2 }}>
-            {isFuture && "▸ "}{isPast && "◂ "}{dateLabel}
-          </div>
+          <div style={{ fontSize:11, letterSpacing:"2px", color: isFuture?"#3b82f6": isPast?"#b0b0c8":"#f97316", textTransform:"uppercase", fontWeight:600, marginBottom:2 }}>{isFuture && "▸ "}{isPast && "◂ "}{dateLabel}</div>
           <div style={{ fontSize:12, color:"#a0a0bc" }}>{fullDateDisplay}</div>
-          {/* Invisible date input overlaid for native picker on click */}
-          <input type="date" value={viewKey}
-            onChange={e => {
-              const v = e.target.value;
-              setSelectedDate(v === todayKey ? null : v);
-            }}
-            style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%" }}
-          />
+          <input type="date" value={viewKey} onChange={e => { const v = e.target.value; setSelectedDate(v === todayKey ? null : v); }} style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%" }} />
         </div>
-
-        {/* Next */}
-        <button onClick={() => shiftDate(1)}
-          style={{ background:"#13132a", border:"1px solid #525270", borderRadius:7, padding:"7px 11px", color:"#c0bdd8", cursor:"pointer", display:"flex", alignItems:"center", fontSize:14, flexShrink:0, lineHeight:1 }}>
-          ›
-        </button>
-
-        {/* Jump to today */}
-        {!isToday && (
-          <button onClick={() => setSelectedDate(null)}
-            style={{ background:"#f97316", border:"none", borderRadius:7, padding:"7px 12px", color:"#fff", cursor:"pointer", fontSize:10, letterSpacing:"1px", fontFamily:"inherit", flexShrink:0, whiteSpace:"nowrap" }}>
-            ↩ TODAY
-          </button>
-        )}
+        <button onClick={() => shiftDate(1)} style={{ background:"#13132a", border:"1px solid #525270", borderRadius:7, padding:"7px 11px", color:"#c0bdd8", cursor:"pointer", fontSize:14, flexShrink:0, lineHeight:1 }}>›</button>
+        {!isToday && <button onClick={() => setSelectedDate(null)} style={{ background:"#f97316", border:"none", borderRadius:7, padding:"7px 12px", color:"#fff", cursor:"pointer", fontSize:10, letterSpacing:"1px", fontFamily:"inherit", flexShrink:0, whiteSpace:"nowrap" }}>↩ TODAY</button>}
       </div>
 
-      {/* Future / Past banner */}
-      {isFuture && (
-        <div style={{ background:"#0d1a2e", border:"1px solid #3b82f633", borderRadius:9, padding:"9px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:16 }}>📅</span>
-          <div style={{ fontSize:12, color:"#3b82f6" }}>Viewing future schedule — tasks shown are based on their repeat rules. You can pre-check them here.</div>
-        </div>
-      )}
-      {isPast && (
-        <div style={{ background:"#0d0d1c", border:"1px solid #6e6e8a", borderRadius:9, padding:"9px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:16 }}>📜</span>
-          <div style={{ fontSize:12, color:"#b0b0c8" }}>Viewing past schedule — you can retroactively mark tasks as done.</div>
-        </div>
-      )}
+      {isFuture && <div style={{ background:"#0d1a2e", border:"1px solid #3b82f633", borderRadius:9, padding:"9px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:16 }}>📅</span><div style={{ fontSize:12, color:"#3b82f6" }}>Viewing future schedule — tasks shown based on their repeat rules.</div></div>}
+      {isPast   && <div style={{ background:"#0d0d1c", border:"1px solid #6e6e8a", borderRadius:9, padding:"9px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:16 }}>📜</span><div style={{ fontSize:12, color:"#b0b0c8" }}>Viewing past schedule — you can retroactively mark tasks as done.</div></div>}
 
-      {/* Progress card */}
       <div style={{ background:"linear-gradient(135deg,#0d0d1e 0%,#0f0f26 100%)", border:`1px solid ${isFuture?"#3b82f630":isPast?"#6e6e8a":"#181830"}`, borderRadius:12, padding:20, marginBottom:18 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:14 }}>
           <div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:46, fontWeight:800, lineHeight:1, color:pct===100?"#10b981":isFuture?"#3b82f6":"#fff" }}>
-              {pct}<span style={{ fontSize:20, color:"#a0a0bc" }}>%</span>
-            </div>
-            <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"2px", marginTop:4 }}>
-              {completedToday}/{totalToday} TASKS · {fmtMins(doneMins)} / {fmtMins(totalMins)}
-            </div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:46, fontWeight:800, lineHeight:1, color:pct===100?"#10b981":isFuture?"#3b82f6":"#fff" }}>{pct}<span style={{ fontSize:20, color:"#a0a0bc" }}>%</span></div>
+            <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"2px", marginTop:4 }}>{completedToday}/{totalToday} TASKS · {fmtMins(doneMins)} / {fmtMins(totalMins)}</div>
           </div>
           {pct===100 && <div style={{ background:"#10b98116", border:"1px solid #10b98138", borderRadius:8, padding:"7px 13px", fontSize:11, color:"#10b981", letterSpacing:"1px" }}>✦ COMPLETE</div>}
-          {isFuture && pct===0 && <div style={{ background:"#3b82f610", border:"1px solid #3b82f630", borderRadius:8, padding:"7px 13px", fontSize:11, color:"#3b82f6", letterSpacing:"1px" }}>PLANNED</div>}
         </div>
         <div style={{ background:"#13132a", borderRadius:4, height:6, overflow:"hidden" }}>
           <div className="progress-bar" style={{ height:"100%", width:`${pct}%`, background:pct===100?"#10b981":isFuture?"#3b82f6":"linear-gradient(90deg,#f97316,#f43f5e)", borderRadius:4 }} />
         </div>
       </div>
 
-      {/* Day Timeline */}
       <DayTimeline tasks={tasks} nowMins={isToday ? nowMins : null} />
 
-      {/* Toolbar */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:13 }}>
-        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", textTransform:"uppercase" }}>
-          {isToday ? "Today's" : isFuture ? "Planned" : "Past"} Schedule
-        </div>
-        <button onClick={onAddTask} className="btn-glow"
-          style={{ display:"flex", alignItems:"center", gap:6, background:"#f97316", border:"none", borderRadius:6, padding:"6px 14px", color:"#fff", fontSize:11, fontFamily:"inherit", cursor:"pointer", letterSpacing:"1px" }}>
+        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", textTransform:"uppercase" }}>{isToday ? "Today's" : isFuture ? "Planned" : "Past"} Schedule</div>
+        <button onClick={onAddTask} className="btn-glow" style={{ display:"flex", alignItems:"center", gap:6, background:"#f97316", border:"none", borderRadius:6, padding:"6px 14px", color:"#fff", fontSize:11, fontFamily:"inherit", cursor:"pointer", letterSpacing:"1px" }}>
           <Icon name="plus" size={12} /> ADD TASK
         </button>
       </div>
 
-      {tasks.length === 0 && (
-        <div style={{ textAlign:"center", padding:"50px 20px", color:"#525270", fontSize:13 }}>
-          {isFuture ? "No tasks repeat on this day." : isPast ? "No tasks were scheduled on this day." : "No tasks scheduled for today."}
-        </div>
-      )}
+      {tasks.length === 0 && <div style={{ textAlign:"center", padding:"50px 20px", color:"#525270", fontSize:13 }}>No tasks scheduled for this day.</div>}
 
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
         {tasks.map(task => {
-          const done     = !!viewLog[task.id];
-          const tMins    = task.startTime ? parseInt(task.startTime)*60 + parseInt(task.startTime.split(":")[1]) : null;
+          const done = !!viewLog[task.id];
+          const tMins = task.startTime ? parseInt(task.startTime)*60 + parseInt(task.startTime.split(":")[1]) : null;
           const isActive = isToday && tMins!==null && nowMins>=tMins && nowMins<tMins+task.duration;
-
           return (
             <div key={task.id} className="task-row"
-              style={{ background:done?"#0c0c1c":"#0e0e1d", border:`1px solid ${isActive&&!done?task.color+"70":done?task.color+"28":isFuture?"#1a2035":"#181830"}`, borderRadius:10, padding:"11px 12px", cursor:"pointer", position:"relative", overflow:"hidden" }}
+              style={{ background:done?"#0c0c1c":"#0e0e1d", border:`1px solid ${isActive&&!done?task.color+"70":done?task.color+"28":"#181830"}`, borderRadius:10, padding:"11px 12px", cursor:"pointer", position:"relative", overflow:"hidden" }}
               onClick={() => toggleTask(task.id, viewKey)}>
-
               {isActive && !done && <div className="shimmer-bar" style={{ position:"absolute", inset:0, pointerEvents:"none", opacity:.06 }} />}
               {isActive && !done && <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:`linear-gradient(90deg,transparent,${task.color},transparent)` }} />}
               {done && <div style={{ position:"absolute", inset:0, background:task.color+"06", pointerEvents:"none" }} />}
-
-              {/* ── Row 1: Checkbox · Accent · Name · Actions ── */}
               <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-
-                {/* Checkbox */}
-                <div style={{ width:22, height:22, borderRadius:6, border:`2px solid ${done?task.color:isFuture?"#1e2a4a":"#6e6e8a"}`, background:done?task.color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.18s", color:"#fff" }}>
-                  {done && <Icon name="check" size={11} />}
-                </div>
-
-                {/* Color accent */}
+                <div style={{ width:22, height:22, borderRadius:6, border:`2px solid ${done?task.color:"#6e6e8a"}`, background:done?task.color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:"#fff" }}>{done && <Icon name="check" size={11} />}</div>
                 <div style={{ width:3, height:26, background:task.color, borderRadius:2, flexShrink:0, opacity:done?0.35:1 }} />
-
-                {/* Task name — truncated */}
                 <div style={{ flex:1, minWidth:0, fontSize:14, color:done?"#a0a0bc":"#e8e6f0", textDecoration:done?"line-through":"none", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                  {task.name}
-                  {isActive && !done && <span className="now-pill">NOW</span>}
+                  {task.name}{isActive && !done && <span className="now-pill">NOW</span>}
                 </div>
-
-                {/* Duration chip + Edit + Delete — always visible, never hidden */}
                 <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
                   <span style={{ background:"#13132a", padding:"2px 7px", borderRadius:4, fontSize:10, color:"#b0b0c8", whiteSpace:"nowrap" }}>{fmtMins(task.duration)}</span>
-                  <button
-                    onClick={e => { e.stopPropagation(); onEditTask(task); }}
-                    style={{ background:"#13132a", border:"1px solid #232348", borderRadius:6, cursor:"pointer", color:"#a0a0bc", padding:"4px 6px", display:"flex", alignItems:"center", flexShrink:0, transition:"all 0.15s" }}
-                    onMouseEnter={e=>e.currentTarget.style.color="#f97316"}
-                    onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}>
-                    <Icon name="edit" size={12} />
-                  </button>
-                  <button
-                    onClick={e => { e.stopPropagation(); onDeleteTask(task.id); }}
-                    style={{ background:"#13132a", border:"1px solid #232348", borderRadius:6, cursor:"pointer", color:"#a0a0bc", padding:"4px 6px", display:"flex", alignItems:"center", flexShrink:0, transition:"all 0.15s" }}
-                    onMouseEnter={e=>e.currentTarget.style.color="#f43f5e"}
-                    onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}>
-                    <Icon name="trash" size={12} />
-                  </button>
+                  <button onClick={e => { e.stopPropagation(); onEditTask(task); }} style={{ background:"#13132a", border:"1px solid #232348", borderRadius:6, cursor:"pointer", color:"#a0a0bc", padding:"4px 6px", display:"flex", alignItems:"center" }} onMouseEnter={e=>e.currentTarget.style.color="#f97316"} onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}><Icon name="edit" size={12} /></button>
+                  <button onClick={e => { e.stopPropagation(); onDeleteTask(task.id); }} style={{ background:"#13132a", border:"1px solid #232348", borderRadius:6, cursor:"pointer", color:"#a0a0bc", padding:"4px 6px", display:"flex", alignItems:"center" }} onMouseEnter={e=>e.currentTarget.style.color="#f43f5e"} onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}><Icon name="trash" size={12} /></button>
                 </div>
               </div>
-
-              {/* ── Row 2: Time · Category · Repeat · Goal ── */}
               <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:6, paddingLeft:32, flexWrap:"wrap" }}>
-                {task.startTime && (
-                  <span style={{ color:"#b0b0c8", display:"flex", alignItems:"center", gap:3, fontSize:11 }}>
-                    <Icon name="clock" size={9} /> {fmt12(task.startTime)}
-                    <span style={{ color:"#6e6e8a" }}>–{fmt12(endTime(task.startTime,task.duration))}</span>
-                  </span>
-                )}
+                {task.startTime && <span style={{ color:"#b0b0c8", display:"flex", alignItems:"center", gap:3, fontSize:11 }}><Icon name="clock" size={9} /> {fmt12(task.startTime)}<span style={{ color:"#6e6e8a" }}>–{fmt12(endTime(task.startTime,task.duration))}</span></span>}
                 <span style={{ fontSize:11, color:"#6e6e8a" }}>{task.category}</span>
-                <span style={{ display:"flex", alignItems:"center", gap:3, color:"#6e6e8a", fontSize:11 }}>
-                  <Icon name="repeat" size={9} /> {repeatLabel(task.repeat)}
-                </span>
                 {task.linkedMilestone?.goalId && (() => {
                   const g = goals?.find(x => x.id === task.linkedMilestone.goalId);
-                  const m = g?.milestones?.find(x => x.id === task.linkedMilestone.milestoneId);
-                  return g ? (
-                    <span style={{ display:"flex", alignItems:"center", gap:3, background:"#f9731618", color:"#f97316", padding:"2px 6px", borderRadius:4, fontSize:10 }}>
-                      <Icon name="flag" size={9} /> {g.name}{m ? ` · ${m.name}` : ""}
-                    </span>
-                  ) : null;
+                  return g ? <span style={{ display:"flex", alignItems:"center", gap:3, background:"#f9731618", color:"#f97316", padding:"2px 6px", borderRadius:4, fontSize:10 }}><Icon name="flag" size={9} /> {g.name}</span> : null;
                 })()}
               </div>
             </div>
           );
         })}
       </div>
-
-      {allTasks.length > tasks.length && (
-        <div style={{ marginTop:18, padding:12, background:"#0d0d1c", border:"1px dashed #181830", borderRadius:10 }}>
-          <div style={{ fontSize:11, color:"#6e6e8a" }}>
-            {allTasks.length-tasks.length} task{allTasks.length-tasks.length>1?"s":""} not scheduled for this day — edit their repeat settings to include it.
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1786,13 +1178,11 @@ function HistoryView({ tasks, logs, timezone, setSelectedDate, setTab }) {
   const [vm, setVm] = useState(now.getMonth());
   const [hoveredKey, setHoveredKey] = useState(null);
   const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const firstDay    = new Date(vy,vm,1).getDay();
+  const firstDay = new Date(vy,vm,1).getDay();
   const daysInMonth = new Date(vy,vm+1,0).getDate();
-  const todayStr    = todayKey(timezone);
-
+  const todayStr = todayKey(timezone);
   const prevMonth = () => { if(vm===0){setVy(y=>y-1);setVm(11);}else setVm(m=>m-1); };
   const nextMonth = () => { if(vm===11){setVy(y=>y+1);setVm(0);}else setVm(m=>m+1); };
-
   const getPct = d => {
     const key = `${vy}-${String(vm+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
     const applicable = tasks.filter(t => taskAppliesToDate(t,key));
@@ -1800,12 +1190,7 @@ function HistoryView({ tasks, logs, timezone, setSelectedDate, setTab }) {
     const done = applicable.filter(t => (logs[key]||{})[t.id]).length;
     return done/applicable.length;
   };
-
-  const goToDate = (key) => {
-    setSelectedDate(key === todayStr ? null : key);
-    setTab("today");
-  };
-
+  const goToDate = (key) => { setSelectedDate(key === todayStr ? null : key); setTab("today"); };
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
@@ -1813,98 +1198,52 @@ function HistoryView({ tasks, logs, timezone, setSelectedDate, setTab }) {
         <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:700 }}>{MONTHS[vm]} {vy}</div>
         <button onClick={nextMonth} style={{ background:"#13132a", border:"none", color:"#e8e6f0", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontFamily:"inherit", fontSize:13 }}>→</button>
       </div>
-
-      {/* Click-to-navigate hint */}
-      <div style={{ fontSize:10, color:"#6e6e8a", letterSpacing:"1px", textAlign:"center", marginBottom:10, textTransform:"uppercase" }}>
-        Tap any date to view its schedule →
-      </div>
-
+      <div style={{ fontSize:10, color:"#6e6e8a", letterSpacing:"1px", textAlign:"center", marginBottom:10, textTransform:"uppercase" }}>Tap any date to view its schedule →</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:6 }}>
-        {WEEKDAYS.map(d => <div key={d} style={{ textAlign:"center", fontSize:10, color:"#6e6e8a", letterSpacing:".5px" }}>{d}</div>)}
+        {WEEKDAYS.map(d => <div key={d} style={{ textAlign:"center", fontSize:10, color:"#6e6e8a" }}>{d}</div>)}
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
         {Array(firstDay).fill(null).map((_,i) => <div key={"e"+i} />)}
         {Array(daysInMonth).fill(null).map((_,i) => {
-          const d   = i+1;
+          const d = i+1;
           const pct = getPct(d);
           const key = `${vy}-${String(vm+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-          const isToday   = key === todayStr;
+          const isToday = key === todayStr;
           const isHovered = key === hoveredKey;
-          const isFuture  = key > todayStr;
-          const bg = isHovered
-            ? "#f9731640"
-            : pct < 0  ? "#131328"
-            : pct === 0 ? "#131328"
-            : pct < 0.5 ? "#6d28d944"
-            : pct < 1   ? "#f97316"
-            : "#10b981";
-
-          // Task count for tooltip label
+          const isFuture = key > todayStr;
+          const bg = isHovered ? "#f9731640" : pct < 0 ? "#131328" : pct === 0 ? "#131328" : pct < 0.5 ? "#6d28d944" : pct < 1 ? "#f97316" : "#10b981";
           const applicable = tasks.filter(t => taskAppliesToDate(t, key));
           const done = applicable.filter(t => (logs[key]||{})[t.id]).length;
-          const taskLabel = applicable.length
-            ? `${done}/${applicable.length} tasks`
-            : isFuture ? "planned" : "no tasks";
-
           return (
-            <div
-              key={d}
-              onClick={() => goToDate(key)}
-              onMouseEnter={() => setHoveredKey(key)}
-              onMouseLeave={() => setHoveredKey(null)}
-              style={{
-                aspectRatio:"1", borderRadius:8, background:bg,
-                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                fontSize:11, color: isHovered ? "#fff" : pct>0 ? "#fff" : "#525270",
-                border: isToday ? "2px solid #f97316" : isHovered ? "1px solid #f9731680" : "1px solid #181830",
-                fontWeight: isToday ? 700 : 400,
-                cursor:"pointer",
-                transition:"background 0.12s, border 0.12s, transform 0.1s",
-                transform: isHovered ? "scale(1.08)" : "scale(1)",
-                position:"relative",
-              }}
-            >
+            <div key={d} onClick={() => goToDate(key)} onMouseEnter={() => setHoveredKey(key)} onMouseLeave={() => setHoveredKey(null)}
+              style={{ aspectRatio:"1", borderRadius:8, background:bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontSize:11, color: isHovered?"#fff":pct>0?"#fff":"#525270", border: isToday?"2px solid #f97316":isHovered?"1px solid #f9731680":"1px solid #181830", fontWeight: isToday?700:400, cursor:"pointer", transition:"all 0.12s", transform: isHovered?"scale(1.08)":"scale(1)", position:"relative" }}>
               <span>{d}</span>
-              {isHovered && (
-                <span style={{ fontSize:8, color:"rgba(255,255,255,.65)", letterSpacing:".3px", marginTop:2, whiteSpace:"nowrap" }}>
-                  {taskLabel}
-                </span>
-              )}
-              {/* Small arrow indicator on hover */}
-              {isHovered && (
-                <div style={{ position:"absolute", bottom:3, right:4, fontSize:8, color:"#f97316", opacity:.8 }}>→</div>
-              )}
+              {isHovered && <span style={{ fontSize:8, color:"rgba(255,255,255,.65)", marginTop:2, whiteSpace:"nowrap" }}>{applicable.length ? `${done}/${applicable.length}` : "—"}</span>}
             </div>
           );
         })}
       </div>
-
       <div style={{ display:"flex", gap:14, marginTop:14, flexWrap:"wrap" }}>
         {[["#131328","0%"],["#6d28d944","1–49%"],["#f97316","50–99%"],["#10b981","100%"]].map(([c,l]) => (
-          <div key={l} style={{ display:"flex", alignItems:"center", gap:6, fontSize:11, color:"#a0a0bc" }}>
-            <div style={{ width:12, height:12, borderRadius:3, background:c, border:"1px solid #525270" }} /> {l}
-          </div>
+          <div key={l} style={{ display:"flex", alignItems:"center", gap:6, fontSize:11, color:"#a0a0bc" }}><div style={{ width:12, height:12, borderRadius:3, background:c, border:"1px solid #525270" }} /> {l}</div>
         ))}
       </div>
-
-      {/* Last 7 days bar */}
       <div style={{ marginTop:26 }}>
         <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", marginBottom:13, textTransform:"uppercase" }}>Last 7 Days</div>
         {Array(7).fill(null).map((_,i) => {
-          const d   = new Date(); d.setDate(d.getDate()-(6-i));
+          const d = new Date(); d.setDate(d.getDate()-(6-i));
           const key = d.toLocaleDateString("en-CA",{timeZone:timezone});
           const applicable = tasks.filter(t => taskAppliesToDate(t,key));
-          const done  = applicable.filter(t => (logs[key]||{})[t.id]).length;
+          const done = applicable.filter(t => (logs[key]||{})[t.id]).length;
           const total = applicable.length;
-          const p     = total ? done/total : 0;
+          const p = total ? done/total : 0;
           return (
             <div key={key} onClick={() => goToDate(key)}
-              style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8, cursor:"pointer", borderRadius:6, padding:"3px 4px", transition:"background 0.1s" }}
-              onMouseEnter={e => e.currentTarget.style.background="#13132a"}
-              onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+              style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8, cursor:"pointer", borderRadius:6, padding:"3px 4px" }}
+              onMouseEnter={e => e.currentTarget.style.background="#13132a"} onMouseLeave={e => e.currentTarget.style.background="transparent"}>
               <div style={{ width:34, fontSize:11, color:"#a0a0bc", textAlign:"right" }}>{WEEKDAYS[d.getDay()]}</div>
               <div style={{ flex:1, background:"#13132a", borderRadius:4, height:8, overflow:"hidden" }}>
-                <div style={{ height:"100%", width:`${p*100}%`, background:p===1?"#10b981":"#f97316", borderRadius:4, transition:"width 0.7s ease" }} />
+                <div style={{ height:"100%", width:`${p*100}%`, background:p===1?"#10b981":"#f97316", borderRadius:4 }} />
               </div>
               <div style={{ width:40, fontSize:11, color:"#a0a0bc" }}>{done}/{total}</div>
               <div style={{ fontSize:10, color:"#f97316", opacity:.6 }}>→</div>
@@ -1916,7 +1255,7 @@ function HistoryView({ tasks, logs, timezone, setSelectedDate, setTab }) {
   );
 }
 
-// ─── Category Row (for Stats) ─────────────────────────────────────────────────
+// ─── Category Row ─────────────────────────────────────────────────────────────
 function CategoryRow({ cat, color, rate, catTasks }) {
   const [open, setOpen] = useState(false);
   return (
@@ -1934,9 +1273,7 @@ function CategoryRow({ cat, color, rate, catTasks }) {
           </div>
         </div>
         <div style={{ background:"#13132a", borderRadius:4, height:8, overflow:"hidden" }}>
-          <div style={{ height:"100%", width:`${rate}%`, background:rate===100?"#10b981":color, borderRadius:4, transition:"width 1s ease", position:"relative", overflow:"hidden" }}>
-            <div style={{ position:"absolute", inset:0, background:"linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent)", backgroundSize:"200% 100%", animation:"shimmer 3s infinite" }} />
-          </div>
+          <div style={{ height:"100%", width:`${rate}%`, background:rate===100?"#10b981":color, borderRadius:4, transition:"width 1s ease" }} />
         </div>
       </div>
       {open && (
@@ -1948,7 +1285,7 @@ function CategoryRow({ cat, color, rate, catTasks }) {
                 <span style={{ color:t.rate===100?"#10b981":color }}>{t.rate}%</span>
               </div>
               <div style={{ background:"#13132a", borderRadius:2, height:4 }}>
-                <div style={{ height:"100%", width:`${t.rate}%`, background:t.rate===100?"#10b981":color, borderRadius:2, opacity:.75, transition:"width 0.8s ease" }} />
+                <div style={{ height:"100%", width:`${t.rate}%`, background:t.rate===100?"#10b981":color, borderRadius:2, opacity:.75 }} />
               </div>
             </div>
           ))}
@@ -1960,72 +1297,45 @@ function CategoryRow({ cat, color, rate, catTasks }) {
 
 // ─── Stats View ───────────────────────────────────────────────────────────────
 function StatsView({ tasks, logs, timezone, goals }) {
-  const allDates     = Object.keys(logs).sort();
-  const totalDays    = allDates.length;
-
-  const completeDays = allDates.filter(d => {
-    const ap = tasks.filter(t => taskAppliesToDate(t,d));
-    return ap.length>0 && ap.every(t => logs[d]?.[t.id]);
-  }).length;
-
-  // Imperfect days: had tasks but completed < 50%
-  const imperfectDays = allDates.filter(d => {
-    const ap   = tasks.filter(t => taskAppliesToDate(t,d));
-    const done = ap.filter(t => logs[d]?.[t.id]).length;
-    return ap.length>0 && done>0 && done/ap.length < 0.5;
-  }).length;
-
-  // Missed days: had tasks but completed 0
-  const missedDays = allDates.filter(d => {
-    const ap   = tasks.filter(t => taskAppliesToDate(t,d));
-    const done = ap.filter(t => logs[d]?.[t.id]).length;
-    return ap.length>0 && done===0;
-  }).length;
-
-  // Current streak (consecutive perfect days ending today)
+  const allDates = Object.keys(logs).sort();
+  const completeDays = allDates.filter(d => { const ap = tasks.filter(t => taskAppliesToDate(t,d)); return ap.length>0 && ap.every(t => logs[d]?.[t.id]); }).length;
+  const imperfectDays = allDates.filter(d => { const ap = tasks.filter(t => taskAppliesToDate(t,d)); const done = ap.filter(t => logs[d]?.[t.id]).length; return ap.length>0 && done>0 && done/ap.length < 0.5; }).length;
+  const missedDays = allDates.filter(d => { const ap = tasks.filter(t => taskAppliesToDate(t,d)); const done = ap.filter(t => logs[d]?.[t.id]).length; return ap.length>0 && done===0; }).length;
   const currentStreak = (() => {
-    let s = 0;
-    const d = new Date();
+    let s = 0; const d = new Date();
     for (let i = 0; i < 366; i++) {
       const key = d.toLocaleDateString("en-CA", { timeZone: timezone });
-      const ap  = tasks.filter(t => taskAppliesToDate(t,key));
+      const ap = tasks.filter(t => taskAppliesToDate(t,key));
       if (ap.length === 0) { d.setDate(d.getDate()-1); continue; }
-      if (ap.every(t => logs[key]?.[t.id])) { s++; d.setDate(d.getDate()-1); }
-      else break;
+      if (ap.every(t => logs[key]?.[t.id])) { s++; d.setDate(d.getDate()-1); } else break;
     }
     return s;
   })();
-
   const taskStats = tasks.map(t => {
     const applicable = allDates.filter(d => taskAppliesToDate(t,d));
-    const done       = applicable.filter(d => logs[d]?.[t.id]).length;
+    const done = applicable.filter(d => logs[d]?.[t.id]).length;
     return { ...t, rate: applicable.length ? Math.round(done/applicable.length*100) : 0 };
   });
-
-  // Category-level aggregation
   const catColors = { Health:"#10b981", Career:"#3b82f6", Learning:"#a855f7", Finance:"#eab308", Personal:"#f43f5e", Creative:"#ec4899", Social:"#06b6d4", Work:"#3b82f6", Other:"#f97316" };
   const categories = [...new Set(tasks.map(t => t.category||"Other"))].sort();
   const catStats = categories.map(cat => {
     const catTasks = taskStats.filter(t => (t.category||"Other") === cat);
-    const avgRate  = catTasks.length ? Math.round(catTasks.reduce((s,t)=>s+t.rate,0)/catTasks.length) : 0;
+    const avgRate = catTasks.length ? Math.round(catTasks.reduce((s,t)=>s+t.rate,0)/catTasks.length) : 0;
     return { cat, color: catColors[cat]||"#f97316", rate: avgRate, tasks: catTasks };
   });
-
   const last14 = Array(14).fill(null).map((_,i) => {
-    const d   = new Date(); d.setDate(d.getDate()-(13-i));
+    const d = new Date(); d.setDate(d.getDate()-(13-i));
     const key = d.toLocaleDateString("en-CA",{timeZone:timezone});
-    const ap  = tasks.filter(t => taskAppliesToDate(t,key));
+    const ap = tasks.filter(t => taskAppliesToDate(t,key));
     const done = ap.filter(t => (logs[key]||{})[t.id]).length;
     return { day:WEEKDAYS[d.getDay()], pct:ap.length?Math.round(done/ap.length*100):0 };
   });
-
   const cards = [
-    { label:"PERFECT DAYS",   value:completeDays,   color:"#10b981", sub:"100% tasks done",        icon:"✦" },
-    { label:"IMPERFECT DAYS", value:imperfectDays,  color:"#eab308", sub:"below 50% tasks done",   icon:"◑" },
-    { label:"MISSED DAYS",    value:missedDays,      color:"#f43f5e", sub:"0 tasks completed",      icon:"✕" },
-    { label:"STREAK",         value:currentStreak,  color:"#f97316", sub:"consecutive perfect days",icon:"🔥" },
+    { label:"PERFECT DAYS",   value:completeDays,  color:"#10b981", sub:"100% tasks done",        icon:"✦" },
+    { label:"IMPERFECT DAYS", value:imperfectDays, color:"#eab308", sub:"below 50% tasks done",   icon:"◑" },
+    { label:"MISSED DAYS",    value:missedDays,    color:"#f43f5e", sub:"0 tasks completed",       icon:"✕" },
+    { label:"STREAK",         value:currentStreak, color:"#f97316", sub:"consecutive perfect days",icon:"🔥" },
   ];
-
   return (
     <div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:10, marginBottom:18 }}>
@@ -2034,110 +1344,32 @@ function StatsView({ tasks, logs, timezone, goals }) {
             <div style={{ position:"absolute", top:10, right:12, fontSize:18, opacity:.15 }}>{c.icon}</div>
             <div style={{ fontFamily:"'Syne',sans-serif", fontSize:32, fontWeight:800, color:c.color, lineHeight:1 }}>{c.value}</div>
             <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#b0b0c8", marginTop:5, textTransform:"uppercase" }}>{c.label}</div>
-            <div style={{ fontSize:9, color:"#6e6e8a", marginTop:3, letterSpacing:".3px" }}>{c.sub}</div>
+            <div style={{ fontSize:9, color:"#6e6e8a", marginTop:3 }}>{c.sub}</div>
           </div>
         ))}
       </div>
-
       <div style={{ background:"#0e0e1d", border:"1px solid #181830", borderRadius:10, padding:16, marginBottom:12 }}>
         <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", marginBottom:13, textTransform:"uppercase" }}>14-Day Completion %</div>
         <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:110, paddingBottom:20, position:"relative" }}>
-          {/* Y gridlines */}
-          {[25,50,75,100].map(y => (
-            <div key={y} style={{ position:"absolute", left:0, right:0, bottom: 20 + (y/100)*90, height:1, background:"#1a1a2e", zIndex:0 }} />
-          ))}
+          {[25,50,75,100].map(y => <div key={y} style={{ position:"absolute", left:0, right:0, bottom: 20+(y/100)*90, height:1, background:"#1a1a2e" }} />)}
           {last14.map((e,i) => {
             const barH = Math.max(2, Math.round((e.pct/100)*90));
-            const fill  = e.pct===100?"#10b981":e.pct>0?"#f97316":"#1e1e38";
+            const fill = e.pct===100?"#10b981":e.pct>0?"#f97316":"#1e1e38";
             return (
               <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4, height:"100%", justifyContent:"flex-end", position:"relative", zIndex:1 }}>
-                {e.pct > 0 && (
-                  <div style={{ fontSize:8, color:fill, letterSpacing:".3px", marginBottom:1 }}>{e.pct}%</div>
-                )}
-                <div title={`${e.day}: ${e.pct}%`}
-                  style={{ width:"100%", height:barH, background:fill, borderRadius:"3px 3px 0 0", transition:"height 0.8s ease", cursor:"default" }} />
-                <div style={{ fontSize:9, color:"#525270", marginTop:2, letterSpacing:".3px" }}>{e.day}</div>
+                {e.pct > 0 && <div style={{ fontSize:8, color:fill, marginBottom:1 }}>{e.pct}%</div>}
+                <div style={{ width:"100%", height:barH, background:fill, borderRadius:"3px 3px 0 0" }} />
+                <div style={{ fontSize:9, color:"#525270", marginTop:2 }}>{e.day}</div>
               </div>
             );
           })}
         </div>
       </div>
-
       <div style={{ background:"#0e0e1d", border:"1px solid #181830", borderRadius:10, padding:16 }}>
         <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", marginBottom:3, textTransform:"uppercase" }}>Category Consistency</div>
         <div style={{ fontSize:10, color:"#6e6e8a", marginBottom:14 }}>Tap a category to see individual tasks</div>
-        {catStats.length===0 && <div style={{ color:"#525270", fontSize:13, textAlign:"center", padding:"20px 0" }}>No tasks yet.</div>}
-        {catStats.map(({ cat, color, rate, tasks:catTasks }) => (
-          <CategoryRow key={cat} cat={cat} color={color} rate={rate} catTasks={catTasks} />
-        ))}
+        {catStats.map(({ cat, color, rate, tasks:catTasks }) => <CategoryRow key={cat} cat={cat} color={color} rate={rate} catTasks={catTasks} />)}
       </div>
-
-      {/* ── Missed Days Heatmap ── */}
-      <div style={{ background:"#0e0e1d", border:"1px solid #181830", borderRadius:10, padding:16, marginTop:12 }}>
-        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", marginBottom:4, textTransform:"uppercase" }}>Missed Days — Last 60 Days</div>
-        <div style={{ fontSize:11, color:"#6e6e8a", marginBottom:13 }}>Each cell = one day. Red = missed tasks, green = completed, dark = no tasks scheduled.</div>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:3 }}>
-          {Array(60).fill(null).map((_,i) => {
-            const d   = new Date(); d.setDate(d.getDate()-(59-i));
-            const key = d.toLocaleDateString("en-CA",{timeZone:timezone});
-            const ap  = tasks.filter(t => taskAppliesToDate(t,key));
-            const done = ap.filter(t => (logs[key]||{})[t.id]).length;
-            const isFuture = d > new Date();
-            let bg = "#131328", title = fmtDate(key);
-            if (!isFuture && ap.length > 0) {
-              const p = done/ap.length;
-              bg = p === 1 ? "#10b981" : p >= 0.5 ? "#f97316" : p > 0 ? "#c2410c" : "#f43f5e44";
-              title = `${fmtDate(key)}: ${done}/${ap.length} tasks (${Math.round(p*100)}%)`;
-            }
-            const isToday = d.toDateString() === new Date().toDateString();
-            return (
-              <div key={i} className="heat-cell" title={title}
-                style={{ width:16, height:16, borderRadius:3, background:isFuture?"#0d0d1a":bg, border:isToday?"1.5px solid #f97316":"1px solid #0d0d1a", flexShrink:0 }} />
-            );
-          })}
-        </div>
-        <div style={{ display:"flex", gap:14, marginTop:12, flexWrap:"wrap" }}>
-          {[["#10b981","All done"],["#f97316","50–99%"],["#c2410c","1–49%"],["#f43f5e44","0% (missed)"],["#131328","No tasks"]].map(([c,l])=>(
-            <div key={l} style={{ display:"flex", alignItems:"center", gap:5, fontSize:10, color:"#a0a0bc" }}>
-              <div style={{ width:10, height:10, borderRadius:2, background:c, border:"1px solid #525270" }}/> {l}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Overdue Milestones across all goals ── */}
-      {(() => {
-        const today = new Date(); today.setHours(0,0,0,0);
-        const overdueMilestones = (goals||[]).flatMap(g =>
-          (g.milestones||[])
-            .filter(m => !m.done && m.deadline && new Date(m.deadline+"T00:00:00") < today)
-            .map(m => ({ ...m, goalName:g.name, goalColor:(catColors||{})[g.category]||"#f97316", daysOverdue: Math.round((today - new Date(m.deadline+"T00:00:00"))/864e5) }))
-        ).sort((a,b) => b.daysOverdue - a.daysOverdue);
-        const catColors = { Health:"#10b981", Career:"#3b82f6", Learning:"#a855f7", Finance:"#eab308", Personal:"#f43f5e", Other:"#f97316" };
-        if (!overdueMilestones.length) return null;
-        return (
-          <div style={{ background:"#120808", border:"1px solid #f43f5e33", borderRadius:10, padding:16, marginTop:12 }}>
-            <div style={{ fontSize:11, letterSpacing:"2px", color:"#f43f5e", marginBottom:13, textTransform:"uppercase", display:"flex", alignItems:"center", gap:6 }}>
-              ⚡ Overdue Milestones
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              {overdueMilestones.map(m => (
-                <div key={m.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:"#1a0a0a", borderRadius:7, padding:"9px 12px", border:"1px solid #f43f5e22" }}>
-                  <div>
-                    <div style={{ fontSize:12, color:"#f87090" }}>{m.name}</div>
-                    <div style={{ fontSize:10, color:"#483030", marginTop:3 }}>
-                      {m.goalName} · due {fmtDate(m.deadline)}
-                    </div>
-                  </div>
-                  <div style={{ background:"#f43f5e22", color:"#f43f5e", border:"1px solid #f43f5e44", borderRadius:5, padding:"3px 9px", fontSize:10, letterSpacing:"1px", flexShrink:0 }}>
-                    {m.daysOverdue}d late
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 }
@@ -2146,39 +1378,21 @@ function StatsView({ tasks, logs, timezone, goals }) {
 function GoalsView({ goals, setGoals, onAdd }) {
   const catColors = { Health:"#10b981", Career:"#3b82f6", Learning:"#a855f7", Finance:"#eab308", Personal:"#f43f5e", Other:"#f97316" };
   const [expandedGoal, setExpandedGoal] = useState(null);
-  const [msModal, setMsModal] = useState(null); // goalId when open
-  const [editMs, setEditMs] = useState(null);   // { goalId, milestone } for inline edit
+  const [msModal, setMsModal] = useState(null);
+  const [editMs, setEditMs] = useState(null);
 
   const addMilestone = (goalId, ms) => {
-    setGoals(prev => prev.map(g => g.id !== goalId ? g : {
-      ...g,
-      milestones: [...(g.milestones||[]), { ...ms, id:"m"+Date.now(), done:false, createdAt: new Date().toISOString().slice(0,10) }],
-      target: (g.milestones||[]).length + 1,
-    }));
+    setGoals(prev => prev.map(g => g.id !== goalId ? g : { ...g, milestones: [...(g.milestones||[]), { ...ms, id:"m"+Date.now(), done:false, createdAt: new Date().toISOString().slice(0,10) }], target: (g.milestones||[]).length + 1 }));
     setMsModal(null);
   };
-
   const deleteMilestone = (goalId, msId) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id !== goalId) return g;
-      const milestones = (g.milestones||[]).filter(m => m.id !== msId);
-      return { ...g, milestones, target: Math.max(1, milestones.length), current: milestones.filter(m=>m.done).length };
-    }));
+    setGoals(prev => prev.map(g => { if (g.id !== goalId) return g; const milestones = (g.milestones||[]).filter(m => m.id !== msId); return { ...g, milestones, target: Math.max(1, milestones.length), current: milestones.filter(m=>m.done).length }; }));
   };
-
   const toggleMilestone = (goalId, msId) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id !== goalId) return g;
-      const milestones = (g.milestones||[]).map(m => m.id===msId ? { ...m, done:!m.done } : m);
-      return { ...g, milestones, current: milestones.filter(m=>m.done).length };
-    }));
+    setGoals(prev => prev.map(g => { if (g.id !== goalId) return g; const milestones = (g.milestones||[]).map(m => m.id===msId ? { ...m, done:!m.done } : m); return { ...g, milestones, current: milestones.filter(m=>m.done).length }; }));
   };
-
   const saveEditMs = (goalId, msId, name, deadline) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id !== goalId) return g;
-      return { ...g, milestones: (g.milestones||[]).map(m => m.id===msId ? { ...m, name, deadline } : m) };
-    }));
+    setGoals(prev => prev.map(g => { if (g.id !== goalId) return g; return { ...g, milestones: (g.milestones||[]).map(m => m.id===msId ? { ...m, name, deadline } : m) }; }));
     setEditMs(null);
   };
 
@@ -2186,35 +1400,22 @@ function GoalsView({ goals, setGoals, onAdd }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
         <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", textTransform:"uppercase" }}>Long-Term Goals</div>
-        <button onClick={onAdd} className="btn-glow"
-          style={{ display:"flex", alignItems:"center", gap:6, background:"#f97316", border:"none", borderRadius:6, padding:"6px 14px", color:"#fff", fontSize:11, fontFamily:"inherit", cursor:"pointer", letterSpacing:"1px" }}>
+        <button onClick={onAdd} className="btn-glow" style={{ display:"flex", alignItems:"center", gap:6, background:"#f97316", border:"none", borderRadius:6, padding:"6px 14px", color:"#fff", fontSize:11, fontFamily:"inherit", cursor:"pointer", letterSpacing:"1px" }}>
           <Icon name="plus" size={12} /> ADD GOAL
         </button>
       </div>
-
-      {goals.length===0 && (
-        <div style={{ textAlign:"center", padding:"60px 20px", color:"#525270" }}>
-          <div style={{ fontSize:32, marginBottom:12 }}>◎</div>
-          <div style={{ fontSize:13 }}>Set your first long-term goal</div>
-        </div>
-      )}
-
+      {goals.length===0 && <div style={{ textAlign:"center", padding:"60px 20px", color:"#525270" }}><div style={{ fontSize:32, marginBottom:12 }}>◎</div><div style={{ fontSize:13 }}>Set your first long-term goal</div></div>}
       <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
         {goals.map(g => {
           const milestones = g.milestones || [];
-          const hasMilestones = milestones.length > 0;
           const doneMilestones = milestones.filter(m => m.done).length;
-          const current = hasMilestones ? doneMilestones : g.current;
-          const target  = hasMilestones ? milestones.length : g.target;
+          const current = milestones.length > 0 ? doneMilestones : g.current;
+          const target  = milestones.length > 0 ? milestones.length : g.target;
           const pct     = target > 0 ? Math.round((current / target) * 100) : 0;
           const color   = catColors[g.category] || "#f97316";
           const isOpen  = expandedGoal === g.id;
-
           return (
-            <div key={g.id} className="goal-card"
-              style={{ background:"#0e0e1d", border:`1px solid ${isOpen ? color+"44" : "#181830"}`, borderRadius:14, overflow:"hidden" }}>
-
-              {/* ── Goal Header ── */}
+            <div key={g.id} className="goal-card" style={{ background:"#0e0e1d", border:`1px solid ${isOpen ? color+"44" : "#181830"}`, borderRadius:14, overflow:"hidden" }}>
               <div style={{ padding:"16px 18px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
                   <div style={{ flex:1, minWidth:0, marginRight:12 }}>
@@ -2222,260 +1423,69 @@ function GoalsView({ goals, setGoals, onAdd }) {
                     <div style={{ fontSize:11, color:"#a0a0bc", display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
                       <span style={{ background:color+"1a", color, padding:"2px 8px", borderRadius:4, fontSize:10, letterSpacing:"1px" }}>{g.category}</span>
                       {g.deadline && <span>Due: {fmtDate(g.deadline)}</span>}
-                      {hasMilestones && (
-                        <span style={{ color:"#b0b0c8", display:"flex", alignItems:"center", gap:3 }}>
-                          <Icon name="milestone" size={10} /> {doneMilestones}/{milestones.length} milestones
-                        </span>
-                      )}
+                      {milestones.length > 0 && <span style={{ color:"#b0b0c8", display:"flex", alignItems:"center", gap:3 }}><Icon name="milestone" size={10} /> {doneMilestones}/{milestones.length} milestones</span>}
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontSize:22, fontWeight:800, color }}>{pct}%</div>
-                    <button onClick={() => setExpandedGoal(isOpen ? null : g.id)}
-                      style={{ background:"#13132a", border:"1px solid #525270", borderRadius:6, cursor:"pointer", color:"#c0bdd8", padding:"5px 7px", display:"flex" }}>
-                      <Icon name={isOpen ? "chevup" : "chev"} size={12} />
-                    </button>
+                    <button onClick={() => setExpandedGoal(isOpen ? null : g.id)} style={{ background:"#13132a", border:"1px solid #525270", borderRadius:6, cursor:"pointer", color:"#c0bdd8", padding:"5px 7px", display:"flex" }}><Icon name={isOpen ? "chevup" : "chev"} size={12} /></button>
                     <button onClick={() => setGoals(p=>p.filter(x=>x.id!==g.id))} style={{ background:"none", border:"none", cursor:"pointer", color:"#525270", padding:4, display:"flex" }}><Icon name="trash" size={13} /></button>
                   </div>
                 </div>
-
-                {/* Progress bar */}
-                <div style={{ background:"#13132a", borderRadius:4, height:7, overflow:"hidden", marginBottom: hasMilestones ? 6 : 12 }}>
+                <div style={{ background:"#13132a", borderRadius:4, height:7, overflow:"hidden", marginBottom:8 }}>
                   <div style={{ height:"100%", width:`${Math.min(100,pct)}%`, background:pct===100?"#10b981":color, borderRadius:4, transition:"width 0.8s" }} />
                 </div>
-
-                {/* Milestone progress chips */}
-                {hasMilestones && (
+                {milestones.length > 0 && (
                   <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:8 }}>
-                    {milestones.map(m => (
-                      <div key={m.id} title={m.name}
-                        style={{ width:16, height:16, borderRadius:3, background: m.done ? color : "#1e1e38", border:`1px solid ${m.done ? color : "#6e6e8a"}`, cursor:"pointer", transition:"all 0.15s" }}
-                        onClick={() => toggleMilestone(g.id, m.id)} />
-                    ))}
+                    {milestones.map(m => <div key={m.id} title={m.name} style={{ width:16, height:16, borderRadius:3, background: m.done ? color : "#1e1e38", border:`1px solid ${m.done ? color : "#6e6e8a"}`, cursor:"pointer" }} onClick={() => toggleMilestone(g.id, m.id)} />)}
                   </div>
                 )}
-
-                {/* Manual counter (only when no milestones) */}
-                {!hasMilestones && (
+                {!milestones.length && (
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                     <span style={{ fontSize:11, color:"#a0a0bc" }}>{g.unit}:</span>
-                    <input type="number" value={g.current}
-                      onChange={e => setGoals(p=>p.map(x=>x.id===g.id?{...x,current:Math.min(x.target,Math.max(0,Number(e.target.value)))}:x))}
-                      style={{ width:80, background:"#13132a", border:"1px solid #525270", borderRadius:5, padding:"4px 8px", color:"#fff", fontSize:12, outline:"none" }} />
+                    <input type="number" value={g.current} onChange={e => setGoals(p=>p.map(x=>x.id===g.id?{...x,current:Math.min(x.target,Math.max(0,Number(e.target.value)))}:x))} style={{ width:80, background:"#13132a", border:"1px solid #525270", borderRadius:5, padding:"4px 8px", color:"#fff", fontSize:12, outline:"none" }} />
                     <span style={{ fontSize:11, color:"#a0a0bc" }}>/ {g.target} {g.unit}</span>
                   </div>
                 )}
-
                 {g.notes && <div style={{ marginTop:10, fontSize:12, color:"#a0a0bc", borderLeft:`3px solid ${color}`, paddingLeft:10, lineHeight:1.6 }}>{g.notes}</div>}
               </div>
-
-              {/* ── Milestones Panel ── */}
               {isOpen && (
                 <div style={{ borderTop:"1px solid #181830", padding:"14px 18px", background:"#0b0b18" }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-                    <div style={{ fontSize:10, letterSpacing:"2px", color:"#a0a0bc", textTransform:"uppercase", display:"flex", alignItems:"center", gap:6 }}>
-                      <Icon name="milestone" size={11} /> Milestones
-                    </div>
-                    <button onClick={() => setMsModal(g.id)}
-                      style={{ display:"flex", alignItems:"center", gap:5, background:"#13132a", border:"1px solid #525270", borderRadius:6, padding:"5px 11px", color:"#c0bdd8", fontSize:11, fontFamily:"inherit", cursor:"pointer" }}>
-                      <Icon name="plus" size={11} /> Add
-                    </button>
+                    <div style={{ fontSize:10, letterSpacing:"2px", color:"#a0a0bc", textTransform:"uppercase" }}>Milestones</div>
+                    <button onClick={() => setMsModal(g.id)} style={{ display:"flex", alignItems:"center", gap:5, background:"#13132a", border:"1px solid #525270", borderRadius:6, padding:"5px 11px", color:"#c0bdd8", fontSize:11, fontFamily:"inherit", cursor:"pointer" }}><Icon name="plus" size={11} /> Add</button>
                   </div>
-
-                  {milestones.length === 0 && (
-                    <div style={{ fontSize:12, color:"#525270", textAlign:"center", padding:"16px 0" }}>No milestones yet. Add one to break this goal into steps.</div>
-                  )}
-
-                  {/* ── Missed overview banner ── */}
-                  {(() => {
-                    const today = new Date(); today.setHours(0,0,0,0);
-                    const overdue = milestones.filter(m => !m.done && m.deadline && new Date(m.deadline+"T00:00:00") < today);
-                    if (!overdue.length) return null;
-                    return (
-                      <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:8, padding:"9px 13px", marginBottom:12, display:"flex", alignItems:"center", gap:8 }}>
-                        <span style={{ fontSize:18 }}>⚠</span>
-                        <div>
-                          <div style={{ fontSize:12, color:"#f43f5e", fontWeight:500 }}>{overdue.length} milestone{overdue.length>1?"s":""} overdue</div>
-                          <div style={{ fontSize:11, color:"#843040", marginTop:2 }}>{overdue.map(m=>m.name).join(" · ")}</div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* ── Timeline track (if any have deadlines) ── */}
-                  {milestones.some(m => m.deadline) && (() => {
-                    const today = new Date(); today.setHours(0,0,0,0);
-                    const sorted = [...milestones].filter(m=>m.deadline).sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
-                    const earliest = new Date(sorted[0].deadline+"T00:00:00");
-                    const latest   = new Date(sorted[sorted.length-1].deadline+"T00:00:00");
-                    const refStart = new Date(Math.min(today.getTime(), earliest.getTime()));
-                    refStart.setDate(refStart.getDate()-7);
-                    const refEnd   = new Date(latest); refEnd.setDate(refEnd.getDate()+7);
-                    const span     = refEnd - refStart;
-                    const pctOf    = d => Math.max(0,Math.min(100,(new Date(d+"T00:00:00")-refStart)/span*100));
-                    const nowPct   = Math.max(0,Math.min(100,(today-refStart)/span*100));
-                    return (
-                      <div style={{ background:"#0d0d1c", border:"1px solid #181830", borderRadius:8, padding:"12px 14px", marginBottom:14 }}>
-                        <div style={{ fontSize:9, letterSpacing:"1.5px", color:"#6e6e8a", marginBottom:10, textTransform:"uppercase" }}>Deadline Timeline</div>
-                        <div style={{ position:"relative", height:28, background:"#13132a", borderRadius:5 }}>
-                          {/* today line */}
-                          <div style={{ position:"absolute", left:`${nowPct}%`, top:0, bottom:0, width:2, background:"#ffffff30", zIndex:2 }}>
-                            <div style={{ position:"absolute", top:-1, left:-3, width:8, height:8, borderRadius:"50%", background:"#fff", opacity:.4 }}/>
-                          </div>
-                          {sorted.map(m => {
-                            const isOverdue = !m.done && new Date(m.deadline+"T00:00:00") < today;
-                            const dotColor  = m.done ? "#10b981" : isOverdue ? "#f43f5e" : color;
-                            return (
-                              <div key={m.id} title={`${m.name} — ${fmtDate(m.deadline)}`}
-                                style={{ position:"absolute", left:`${pctOf(m.deadline)}%`, top:"50%", transform:"translate(-50%,-50%)", width:14, height:14, borderRadius:"50%", background:dotColor, border:`2px solid ${dotColor}55`, zIndex:3, cursor:"default" }} />
-                            );
-                          })}
-                        </div>
-                        <div style={{ display:"flex", justifyContent:"space-between", marginTop:5 }}>
-                          <span style={{ fontSize:9, color:"#6e6e8a" }}>{refStart.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>
-                          <span style={{ fontSize:9, color:"#b0b0c8" }}>TODAY</span>
-                          <span style={{ fontSize:9, color:"#6e6e8a" }}>{refEnd.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* ── Milestone rows ── */}
+                  {milestones.length === 0 && <div style={{ fontSize:12, color:"#525270", textAlign:"center", padding:"16px 0" }}>No milestones yet.</div>}
                   <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                     {milestones.map(m => {
                       const isEditing = editMs?.goalId === g.id && editMs?.milestone?.id === m.id;
                       const today = new Date(); today.setHours(0,0,0,0);
-
-                      // Deadline metadata — for labels/badges only, NOT for bar fill
-                      let daysLeft = null, isOverdue = false;
-                      if (m.deadline) {
-                        const dl = new Date(m.deadline+"T00:00:00");
-                        isOverdue = !m.done && dl < today;
-                        daysLeft  = Math.round((dl - today) / 864e5);
-                      }
-
-                      // ── Completion bar: 0% = not done, 100% = done ──
-                      // The bar ONLY fills when the user ticks the milestone/task.
-                      const completionPct = m.done ? 100 : 0;
-                      const barColor      = m.done ? "#10b981" : isOverdue ? "#f43f5e" : color;
-
-                      // Deadline urgency level (used for segment coloring & label only)
-                      const urgencyLevel = !m.deadline || m.done ? null
-                        : isOverdue ? "overdue"
-                        : daysLeft <= 7  ? "final"
-                        : daysLeft <= 21 ? "late"
-                        : daysLeft <= 60 ? "mid"
-                        : "early";
-
+                      const isOverdue = !m.done && m.deadline && new Date(m.deadline+"T00:00:00") < today;
+                      const daysLeft = m.deadline ? Math.round((new Date(m.deadline+"T00:00:00") - today) / 864e5) : null;
                       return (
-                        <div key={m.id} className={`ms-row${isOverdue?" ms-overdue":""}`}
-                          style={{ padding:"10px 12px", background: isOverdue?"#120a0a":"#0e0e1d", border:`1px solid ${isOverdue?"#f43f5e33":m.done?"#1e3a1e":"#1a1a30"}`, borderRadius:9 }}>
-
+                        <div key={m.id} className="ms-row" style={{ padding:"10px 12px", background: isOverdue?"#120a0a":"#0e0e1d", border:`1px solid ${isOverdue?"#f43f5e33":m.done?"#1e3a1e":"#1a1a30"}`, borderRadius:9 }}>
                           {isEditing ? (
                             <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                              <div onClick={() => toggleMilestone(g.id, m.id)}
-                                style={{ width:18, height:18, borderRadius:4, border:`2px solid ${m.done?color:"#6e6e8a"}`, background:m.done?color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>
-                                {m.done && <Icon name="check" size={10} />}
-                              </div>
-                              <InlineMsEdit
-                                initial={m}
-                                onSave={(name, deadline) => saveEditMs(g.id, m.id, name, deadline)}
-                                onCancel={() => setEditMs(null)}
-                              />
+                              <div onClick={() => toggleMilestone(g.id, m.id)} style={{ width:18, height:18, borderRadius:4, border:`2px solid ${m.done?color:"#6e6e8a"}`, background:m.done?color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>{m.done && <Icon name="check" size={10} />}</div>
+                              <InlineMsEdit initial={m} onSave={(name, deadline) => saveEditMs(g.id, m.id, name, deadline)} onCancel={() => setEditMs(null)} />
                             </div>
                           ) : (
-                            <>
-                              {/* Top row: checkbox + name + badges + actions */}
-                              <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
-                                <div onClick={() => toggleMilestone(g.id, m.id)}
-                                  style={{ width:18, height:18, borderRadius:4, border:`2px solid ${m.done?color:isOverdue?"#f43f5e":"#6e6e8a"}`, background:m.done?color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0, marginTop:1, transition:"all 0.15s" }}>
-                                  {m.done && <Icon name="check" size={10} />}
-                                </div>
-                                <div style={{ flex:1, minWidth:0 }}>
-                                  <div style={{ display:"flex", alignItems:"center", gap:7, flexWrap:"wrap" }}>
-                                    <span style={{ fontSize:13, color:m.done?"#a0a0bc":isOverdue?"#f87090":"#d8d6e8", textDecoration:m.done?"line-through":"none", transition:"color 0.15s" }}>{m.name}</span>
-                                    {isOverdue && <span className="overdue-badge">⚡ {Math.abs(daysLeft)}d overdue</span>}
-                                    {m.done && <span style={{ fontSize:9, color:"#10b981", letterSpacing:"1px", textTransform:"uppercase", background:"#10b98118", padding:"2px 6px", borderRadius:3 }}>✓ completed</span>}
-                                  </div>
-                                  {m.deadline && (
-                                    <div style={{ fontSize:10, marginTop:3, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-                                      <span style={{ color:"#6e6e8a", display:"flex", alignItems:"center", gap:3 }}>
-                                        <Icon name="calendar" size={9}/> {fmtDate(m.deadline)}
-                                      </span>
-                                      {!m.done && !isOverdue && daysLeft !== null && (
-                                        <span style={{ color: daysLeft <= 7 ? "#f97316" : daysLeft <= 21 ? "#eab308" : "#a0a0bc" }}>
-                                          {daysLeft === 0 ? "due today" : `${daysLeft}d left`}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                                <div style={{ display:"flex", gap:4, flexShrink:0, alignItems:"flex-start" }}>
-                                  <button onClick={() => setEditMs({ goalId:g.id, milestone:m })}
-                                    style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:3, display:"flex" }}><Icon name="edit" size={12} /></button>
-                                  <button onClick={() => deleteMilestone(g.id, m.id)}
-                                    style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:3, display:"flex" }}><Icon name="trash" size={12} /></button>
-                                </div>
-                              </div>
-
-                              {/* ── Completion progress bar (task-driven only) ── */}
-                              <div style={{ marginTop:9 }}>
-                                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5 }}>
-                                  <span style={{ fontSize:9, color:"#6e6e8a", letterSpacing:"1px", textTransform:"uppercase" }}>
-                                    {m.done ? "Completed" : "Completion"}
-                                  </span>
-                                  <span style={{ fontSize:9, color: barColor, letterSpacing:".5px", fontWeight:500 }}>
-                                    {m.done ? "✓ 100%" : "0% — tick the task to complete"}
-                                  </span>
-                                </div>
-
-                                {/* Single progress bar — only fills on task completion */}
-                                <div className="ms-progress-track" style={{ position:"relative" }}>
-                                  <div style={{
-                                    height:"100%",
-                                    width:`${completionPct}%`,
-                                    background: barColor,
-                                    borderRadius:3,
-                                    transition:"width 0.7s cubic-bezier(0.4,0,0.2,1)",
-                                    position:"relative",
-                                    overflow:"hidden"
-                                  }}>
-                                    {m.done && (
-                                      <div style={{ position:"absolute", inset:0, background:"linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent)", backgroundSize:"200% 100%", animation:"shimmer 2.5s infinite" }} />
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Deadline urgency indicator (separate from completion bar) */}
-                                {urgencyLevel && (
-                                  <div style={{ display:"flex", gap:2, marginTop:5 }}>
-                                    {[
-                                      { key:"early",   label:"Early",  c:"#10b981" },
-                                      { key:"mid",     label:"Mid",    c:"#eab308" },
-                                      { key:"late",    label:"Late",   c:"#f97316" },
-                                      { key:"final",   label:"Final",  c:"#f43f5e" },
-                                      { key:"overdue", label:"",       c:"#f43f5e" },
-                                    ].filter(s => s.key !== "overdue").map((seg, i, arr) => {
-                                      const levels = ["early","mid","late","final","overdue"];
-                                      const segLevel = levels.indexOf(seg.key);
-                                      const curLevel = levels.indexOf(urgencyLevel);
-                                      const isActive = curLevel >= segLevel;
-                                      return (
-                                        <div key={seg.key} style={{ flex:1, height:2, borderRadius:1, background: isActive ? seg.c : "#1e1e38", transition:"background 0.4s" }}
-                                          title={`Deadline urgency: ${seg.label}`} />
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                                {urgencyLevel && (
-                                  <div style={{ fontSize:9, color:"#6e6e8a", marginTop:3, letterSpacing:".5px", textAlign:"right" }}>
-                                    deadline urgency: <span style={{ color: urgencyLevel==="overdue"||urgencyLevel==="final" ? "#f43f5e" : urgencyLevel==="late" ? "#f97316" : urgencyLevel==="mid" ? "#eab308" : "#10b981" }}>
-                                      {urgencyLevel === "overdue" ? "overdue" : urgencyLevel === "final" ? "this week" : urgencyLevel === "late" ? "3 weeks" : urgencyLevel === "mid" ? "2 months" : "on track"}
-                                    </span>
+                            <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+                              <div onClick={() => toggleMilestone(g.id, m.id)} style={{ width:18, height:18, borderRadius:4, border:`2px solid ${m.done?color:isOverdue?"#f43f5e":"#6e6e8a"}`, background:m.done?color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0, marginTop:1 }}>{m.done && <Icon name="check" size={10} />}</div>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ fontSize:13, color:m.done?"#a0a0bc":isOverdue?"#f87090":"#d8d6e8", textDecoration:m.done?"line-through":"none" }}>{m.name}</div>
+                                {m.deadline && (
+                                  <div style={{ fontSize:10, marginTop:3, display:"flex", alignItems:"center", gap:6 }}>
+                                    <span style={{ color:"#6e6e8a" }}><Icon name="calendar" size={9}/> {fmtDate(m.deadline)}</span>
+                                    {!m.done && daysLeft !== null && <span style={{ color: isOverdue?"#f43f5e":daysLeft<=7?"#f97316":"#a0a0bc" }}>{isOverdue ? `${Math.abs(daysLeft)}d overdue` : daysLeft===0 ? "due today" : `${daysLeft}d left`}</span>}
                                   </div>
                                 )}
                               </div>
-                            </>
+                              <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                                <button onClick={() => setEditMs({ goalId:g.id, milestone:m })} style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:3, display:"flex" }}><Icon name="edit" size={12} /></button>
+                                <button onClick={() => deleteMilestone(g.id, m.id)} style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:3, display:"flex" }}><Icon name="trash" size={12} /></button>
+                              </div>
+                            </div>
                           )}
                         </div>
                       );
@@ -2487,14 +1497,7 @@ function GoalsView({ goals, setGoals, onAdd }) {
           );
         })}
       </div>
-
-      {/* Milestone add modal */}
-      {msModal && (
-        <MilestoneModal
-          onClose={() => setMsModal(null)}
-          onSave={ms => addMilestone(msModal, ms)}
-        />
-      )}
+      {msModal && <MilestoneModal onClose={() => setMsModal(null)} onSave={ms => addMilestone(msModal, ms)} />}
     </div>
   );
 }
@@ -2505,276 +1508,23 @@ function InlineMsEdit({ initial, onSave, onCancel }) {
   const [deadline, setDeadline] = useState(initial.deadline || "");
   return (
     <div style={{ display:"flex", alignItems:"center", gap:6, flex:1, flexWrap:"wrap" }}>
-      <input value={name} onChange={e=>setName(e.target.value)} autoFocus
-        style={{ ...inputStyle, flex:1, minWidth:100, padding:"5px 8px", fontSize:12 }} />
-      <input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)}
-        style={{ ...inputStyle, width:140, padding:"5px 8px", fontSize:12 }} />
-      <button onClick={() => onSave(name.trim()||initial.name, deadline)}
-        style={{ background:"#f97316", border:"none", borderRadius:5, padding:"5px 10px", color:"#fff", fontFamily:"inherit", fontSize:11, cursor:"pointer" }}>✓</button>
-      <button onClick={onCancel}
-        style={{ background:"#13132a", border:"1px solid #525270", borderRadius:5, padding:"5px 8px", color:"#c0bdd8", fontFamily:"inherit", fontSize:11, cursor:"pointer" }}>✕</button>
+      <input value={name} onChange={e=>setName(e.target.value)} autoFocus style={{ ...inputStyle, flex:1, minWidth:100, padding:"5px 8px", fontSize:12 }} />
+      <input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)} style={{ ...inputStyle, width:140, padding:"5px 8px", fontSize:12 }} />
+      <button onClick={() => onSave(name.trim()||initial.name, deadline)} style={{ background:"#f97316", border:"none", borderRadius:5, padding:"5px 10px", color:"#fff", fontFamily:"inherit", fontSize:11, cursor:"pointer" }}>✓</button>
+      <button onClick={onCancel} style={{ background:"#13132a", border:"1px solid #525270", borderRadius:5, padding:"5px 8px", color:"#c0bdd8", fontFamily:"inherit", fontSize:11, cursor:"pointer" }}>✕</button>
     </div>
   );
 }
 
 // ─── Milestone Modal ──────────────────────────────────────────────────────────
 function MilestoneModal({ onClose, onSave }) {
-  const [name,     setName]     = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [name, setName] = useState(""); const [deadline, setDeadline] = useState("");
   return (
     <Modal onClose={onClose} title="Add Milestone">
       <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-        <Field label="Milestone Name">
-          <input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Launch MVP" style={inputStyle} autoFocus />
-        </Field>
-        <Field label="Deadline (optional)">
-          <input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)} style={inputStyle} />
-        </Field>
-        <button onClick={() => { if(!name.trim()) return; onSave({ name:name.trim(), deadline }); }}
-          disabled={!name.trim()}
-          style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"#fff", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px" }}>
-          ADD MILESTONE
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
-// ─── Task Modal ───────────────────────────────────────────────────────────────
-function TaskModal({ onClose, onSave, colorOptions, initial, allTasks, goals }) {
-  const [name,          setName]          = useState(initial?.name                      || "");
-  const [duration,      setDuration]      = useState(initial?.duration                  || 30);
-  const [startTime,     setStartTime]     = useState(initial?.startTime                 || "08:00");
-  const [category,      setCategory]      = useState(initial?.category                  || "Work");
-  const [color,         setColor]         = useState(initial?.color                     || colorOptions[0]);
-  const [repType,       setRepType]       = useState(initial?.repeat?.type              || "daily");
-  const [repDays,       setRepDays]       = useState(initial?.repeat?.days              || []);
-  const [repDates,      setRepDates]      = useState(initial?.repeat?.dates             || []);
-  const [linkedGoalId,  setLinkedGoalId]  = useState(initial?.linkedMilestone?.goalId   || "");
-  const [linkedMsId,    setLinkedMsId]    = useState(initial?.linkedMilestone?.milestoneId || "");
-  const [showLink,      setShowLink]      = useState(!!(initial?.linkedMilestone?.goalId));
-
-  const selectedGoal        = (goals||[]).find(g => g.id === linkedGoalId);
-  const availableMilestones = selectedGoal?.milestones || [];
-
-  // Cascade preview
-  const cascadePreview = (() => {
-    if (!allTasks) return [];
-    const draft   = { id:initial?.id||"__new__", name:name||"New Task", duration:Number(duration), startTime, color, category, repeat:{type:repType,days:repDays,dates:repDates} };
-    const merged  = initial ? allTasks.map(t => t.id===initial.id ? draft : t) : [...allTasks, draft];
-    const resolved = resolveOverlaps(merged);
-    return resolved
-      .filter(t => t.id !== draft.id)
-      .filter(t => { const orig = allTasks.find(x=>x.id===t.id); return orig && orig.startTime !== t.startTime; })
-      .map(t => ({ name:t.name, from:allTasks.find(x=>x.id===t.id)?.startTime, to:t.startTime }));
-  })();
-
-  const cats      = ["Work","Health","Learning","Personal","Creative","Social","Finance","Other"];
-  const toggleDay  = d => setRepDays(p  => p.includes(d) ? p.filter(x=>x!==d) : [...p,d]);
-  const toggleDate = d => setRepDates(p => p.includes(d) ? p.filter(x=>x!==d) : [...p,d]);
-  const repeat     = repType==="daily" ? {type:"daily"} : repType==="weekdays" ? {type:"weekdays",days:repDays} : {type:"monthDates",dates:repDates};
-
-  const linkedMilestone = linkedGoalId
-    ? { goalId:linkedGoalId, milestoneId:linkedMsId||null }
-    : null;
-
-  const save = () => {
-    if (!name.trim()) return;
-    onSave({ id:initial?.id||"t"+Date.now(), name:name.trim(), duration:Number(duration), startTime, category, color, repeat, linkedMilestone });
-  };
-
-  return (
-    <Modal onClose={onClose} title={initial ? "Edit Task" : "New Task"}>
-      <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-
-        <Field label="Task Name">
-          <input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Morning Run" style={inputStyle} autoFocus />
-        </Field>
-
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-          <Field label="Start Time">
-            <input type="time" value={startTime} onChange={e=>setStartTime(e.target.value)} style={inputStyle} />
-          </Field>
-          <Field label={`Duration · ${fmtMins(Number(duration))}`}>
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:6 }}>
-              <input type="range" min="5" max="240" step="5" value={duration} onChange={e=>setDuration(e.target.value)} style={{ flex:1, accentColor:color }} />
-            </div>
-          </Field>
-        </div>
-
-        <Field label="Category">
-          <select value={category} onChange={e=>setCategory(e.target.value)} style={inputStyle}>
-            {cats.map(c=><option key={c}>{c}</option>)}
-          </select>
-        </Field>
-
-        <Field label="Color">
-          <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
-            {colorOptions.map(c=>(
-              <div key={c} onClick={()=>setColor(c)}
-                style={{ width:28, height:28, borderRadius:6, background:c, cursor:"pointer", border:color===c?"3px solid #fff":"3px solid transparent", transition:"all 0.13s" }} />
-            ))}
-          </div>
-        </Field>
-
-        {/* ── Repeat Schedule ── */}
-        <Field label="Repeat">
-          <div style={{ display:"flex", gap:6, marginBottom:10, flexWrap:"wrap" }}>
-            {[["daily","Every Day"],["weekdays","Weekdays"],["monthDates","Month Dates"]].map(([v,l])=>(
-              <button key={v} onClick={()=>setRepType(v)} className={`chip${repType===v?" on":""}`}>{l}</button>
-            ))}
-          </div>
-          {repType==="weekdays" && (
-            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-              {WEEKDAYS.map((d,i) => (
-                <button key={i} onClick={()=>toggleDay(i)} className={`chip${repDays.includes(i)?" on":""}`}>{d}</button>
-              ))}
-            </div>
-          )}
-          {repType==="monthDates" && (
-            <>
-              <div style={{ fontSize:10, color:"#a0a0bc", marginBottom:8, letterSpacing:".5px" }}>Select dates of the month to repeat on:</div>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-                {MONTH_DATES.map(d => (
-                  <button key={d} onClick={()=>toggleDate(d)} className={`dchip${repDates.includes(d)?" on":""}`}>{d}</button>
-                ))}
-              </div>
-            </>
-          )}
-        </Field>
-
-        {/* ── Goal / Milestone Link ── */}
-        <div style={{ borderTop:"1px solid #181830", paddingTop:14 }}>
-          {/* Toggle button */}
-          <button onClick={() => { setShowLink(v=>!v); if(showLink){ setLinkedGoalId(""); setLinkedMsId(""); } }}
-            style={{ display:"flex", alignItems:"center", gap:7, background:"none", border:"none", cursor:"pointer", color:showLink?"#f97316":"#b0b0c8", fontFamily:"inherit", fontSize:12, padding:0, letterSpacing:".5px", width:"100%" }}>
-            <Icon name="link" size={13} />
-            {showLink ? "Remove Goal Link" : "Link to Goal Milestone"}
-            <span style={{ marginLeft:"auto", fontSize:14, opacity:.5, lineHeight:1 }}>{showLink?"×":"+"}</span>
-          </button>
-
-          {showLink && (
-            <div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:0 }}>
-
-              {/* ── No goals state ── */}
-              {(goals||[]).length === 0 && (
-                <div style={{ fontSize:12, color:"#a0a0bc", background:"#13132a", borderRadius:8, padding:"11px 13px" }}>
-                  No goals yet. Create a goal first, then link tasks to milestones.
-                </div>
-              )}
-
-              {/* ── Goal not yet chosen → show goal picker cards ── */}
-              {(goals||[]).length > 0 && !linkedGoalId && (
-                <>
-                  <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#a0a0bc", marginBottom:8, textTransform:"uppercase" }}>Select Goal</div>
-                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                    {(goals||[]).map(g => {
-                      const catColors = { Health:"#10b981", Career:"#3b82f6", Learning:"#a855f7", Finance:"#eab308", Personal:"#f43f5e", Other:"#f97316" };
-                      const gc = catColors[g.category] || "#f97316";
-                      const ms = g.milestones || [];
-                      return (
-                        <div key={g.id} onClick={() => { setLinkedGoalId(g.id); setLinkedMsId(""); }}
-                          style={{ background:"#13132a", border:"1px solid #525270", borderRadius:9, padding:"11px 13px", cursor:"pointer", transition:"border-color 0.15s" }}
-                          onMouseEnter={e=>e.currentTarget.style.borderColor="#f9731660"}
-                          onMouseLeave={e=>e.currentTarget.style.borderColor="#525270"}>
-                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                            <span style={{ fontSize:13, color:"#e8e6f0", fontWeight:500 }}>{g.name}</span>
-                            <span style={{ fontSize:10, background:gc+"22", color:gc, padding:"2px 7px", borderRadius:4, letterSpacing:"1px" }}>{g.category}</span>
-                          </div>
-                          <div style={{ fontSize:11, color:"#a0a0bc", marginTop:5, display:"flex", gap:10 }}>
-                            {ms.length > 0 && <span style={{ display:"flex", alignItems:"center", gap:4 }}><Icon name="milestone" size={10}/> {ms.filter(m=>m.done).length}/{ms.length} milestones</span>}
-                            {g.deadline && <span>Due {fmtDate(g.deadline)}</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-
-              {/* ── Goal chosen → locked header + milestone picker ── */}
-              {linkedGoalId && selectedGoal && (
-                <>
-                  {/* Locked goal card */}
-                  <div style={{ background:"#f9731610", border:"1px solid #f9731644", borderRadius:9, padding:"11px 14px", marginBottom:12 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <Icon name="flag" size={12} />
-                        <span style={{ fontSize:13, color:"#f97316", fontWeight:500 }}>{selectedGoal.name}</span>
-                      </div>
-                      <button onClick={() => { setLinkedGoalId(""); setLinkedMsId(""); }}
-                        style={{ background:"none", border:"none", cursor:"pointer", color:"#b0b0c8", fontSize:11, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4, padding:0 }}>
-                        <Icon name="close" size={11}/> change
-                      </button>
-                    </div>
-                    {selectedGoal.deadline && (
-                      <div style={{ fontSize:10, color:"#b0b0c8", marginTop:4, paddingLeft:20 }}>Due {fmtDate(selectedGoal.deadline)}</div>
-                    )}
-                  </div>
-
-                  {/* Milestone picker */}
-                  <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#a0a0bc", marginBottom:8, textTransform:"uppercase" }}>Link to Milestone</div>
-
-                  {availableMilestones.length === 0 ? (
-                    <div style={{ fontSize:12, color:"#a0a0bc", background:"#13132a", border:"1px solid #1e1e38", borderRadius:8, padding:"11px 13px", lineHeight:1.6 }}>
-                      This goal has no milestones yet.<br/>
-                      <span style={{ color:"#b0b0c8" }}>Completing this task will still count as +1 toward the goal.</span>
-                    </div>
-                  ) : (
-                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                      {availableMilestones.map(m => {
-                        const isSel = linkedMsId === m.id;
-                        return (
-                          <div key={m.id} onClick={() => setLinkedMsId(isSel ? "" : m.id)}
-                            style={{ display:"flex", alignItems:"center", gap:10, background: isSel?"#f9731614":"#13132a", border:`1px solid ${isSel?"#f9731650":"#1e1e38"}`, borderRadius:8, padding:"10px 13px", cursor: m.done?"default":"pointer", opacity:m.done?0.45:1, transition:"all 0.15s" }}>
-                            {/* Radio dot */}
-                            <div style={{ width:16, height:16, borderRadius:"50%", border:`2px solid ${isSel?"#f97316":"#a0a0bc"}`, background:isSel?"#f97316":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.15s" }}>
-                              {isSel && <div style={{ width:6, height:6, borderRadius:"50%", background:"#fff" }} />}
-                            </div>
-                            <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontSize:13, color: m.done?"#a0a0bc":isSel?"#f97316":"#d8d6e8", fontWeight: isSel?500:400, textDecoration:m.done?"line-through":"none" }}>
-                                {m.name}
-                              </div>
-                              {m.deadline && (
-                                <div style={{ fontSize:10, color:"#a0a0bc", marginTop:2, display:"flex", alignItems:"center", gap:4 }}>
-                                  <Icon name="calendar" size={9}/> {fmtDate(m.deadline)}
-                                </div>
-                              )}
-                            </div>
-                            {m.done && <span style={{ fontSize:10, color:"#10b981", flexShrink:0 }}>✓ Done</span>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Confirmation hint */}
-                  <div style={{ marginTop:10, background:"#0d1a0d", border:"1px solid #10b98133", borderRadius:7, padding:"9px 12px", fontSize:11, color:"#10b981", lineHeight:1.6 }}>
-                    ✦ {linkedMsId
-                      ? `Completing this task will mark "${availableMilestones.find(m=>m.id===linkedMsId)?.name}" as done and update the goal progress.`
-                      : "Completing this task will count as +1 toward the goal progress."}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        <button onClick={save} disabled={!name.trim()}
-          style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"#fff", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px", marginTop:4 }}>
-          {initial ? "SAVE CHANGES" : "ADD TASK"}
-        </button>
-
-        {cascadePreview.length > 0 && (
-          <div style={{ background:"#1a1205", border:"1px solid #f97316a0", borderRadius:8, padding:"10px 13px" }}>
-            <div style={{ fontSize:10, color:"#f97316", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:7 }}>⏱ Auto-cascade will shift:</div>
-            {cascadePreview.map((c,i) => (
-              <div key={i} style={{ fontSize:11, color:"#c09060", marginBottom:3 }}>
-                <span style={{ color:"#e8c080" }}>{c.name}</span> {fmt12(c.from)} → <span style={{ color:"#f97316" }}>{fmt12(c.to)}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <Field label="Milestone Name"><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Launch MVP" style={inputStyle} autoFocus /></Field>
+        <Field label="Deadline (optional)"><input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)} style={inputStyle} /></Field>
+        <button onClick={() => { if(!name.trim()) return; onSave({ name:name.trim(), deadline }); }} disabled={!name.trim()} style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"#fff", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px" }}>ADD MILESTONE</button>
       </div>
     </Modal>
   );
@@ -2783,66 +1533,146 @@ function TaskModal({ onClose, onSave, colorOptions, initial, allTasks, goals }) 
 // ─── Day Timeline ─────────────────────────────────────────────────────────────
 function DayTimeline({ tasks, nowMins }) {
   const S = 5*60, E = 24*60, R = E-S;
-  const pct  = m => Math.max(0,Math.min(100,(m-S)/R*100));
-  const hrs  = [6,9,12,15,18,21];
-  const lbl  = h => h>12?`${h-12}pm`:h===12?"12pm":`${h}am`;
-
+  const pct = m => Math.max(0,Math.min(100,(m-S)/R*100));
+  const hrs = [6,9,12,15,18,21];
+  const lbl = h => h>12?`${h-12}pm`:h===12?"12pm":`${h}am`;
   return (
     <div style={{ background:"#0d0d1e", border:"1px solid #181830", borderRadius:10, padding:"12px 14px 16px", marginBottom:16 }}>
       <div style={{ fontSize:10, letterSpacing:"2px", color:"#a0a0bc", marginBottom:10, textTransform:"uppercase" }}>Day Timeline</div>
-
-      {/* Track */}
       <div style={{ position:"relative", height:32, background:"#13132a", borderRadius:6, overflow:"hidden" }}>
-
-        {/* Task blocks */}
         {tasks.map(task => {
-          const tm = t2m(task.startTime||"00:00");
-          const left = pct(tm);
-          const width = Math.max(0.8, task.duration/R*100);
+          const tm = t2m(task.startTime||"00:00"); const left = pct(tm); const width = Math.max(0.8, task.duration/R*100);
           if (left>=100 || tm<S) return null;
-          return (
-            <div key={task.id}
-              title={`${task.name}  ${fmt12(task.startTime)} – ${fmt12(endTime(task.startTime,task.duration))}  (${fmtMins(task.duration)})`}
-              style={{ position:"absolute", left:`${left}%`, width:`${Math.min(width,100-left)}%`, top:4, height:24, background:task.color, borderRadius:3, opacity:.82, display:"flex", alignItems:"center", overflow:"hidden" }}>
-              <span style={{ fontSize:9, color:"rgba(255,255,255,.7)", padding:"0 4px", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                {task.name}
-              </span>
-            </div>
-          );
+          return <div key={task.id} title={`${task.name} ${fmt12(task.startTime)}`} style={{ position:"absolute", left:`${left}%`, width:`${Math.min(width,100-left)}%`, top:4, height:24, background:task.color, borderRadius:3, opacity:.82, display:"flex", alignItems:"center", overflow:"hidden" }}><span style={{ fontSize:9, color:"rgba(255,255,255,.7)", padding:"0 4px", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{task.name}</span></div>;
         })}
-
-        {/* Now line */}
-        {nowMins>=S && nowMins<=E && (
-          <div style={{ position:"absolute", left:`${pct(nowMins)}%`, top:0, bottom:0, width:2, background:"#fff", opacity:.9, zIndex:10 }}>
-            <div style={{ position:"absolute", top:-1, left:-3, width:8, height:8, borderRadius:"50%", background:"#fff" }} />
-          </div>
-        )}
+        {nowMins>=S && nowMins<=E && <div style={{ position:"absolute", left:`${pct(nowMins)}%`, top:0, bottom:0, width:2, background:"#fff", opacity:.9, zIndex:10 }}><div style={{ position:"absolute", top:-1, left:-3, width:8, height:8, borderRadius:"50%", background:"#fff" }} /></div>}
       </div>
-
-      {/* Hour labels */}
       <div style={{ position:"relative", height:14, marginTop:4 }}>
-        {hrs.map(h => {
-          const p = pct(h*60);
-          if (p<0||p>100) return null;
-          return (
-            <div key={h} style={{ position:"absolute", left:`${p}%`, transform:"translateX(-50%)", fontSize:9, color:"#6e6e8a", letterSpacing:".3px" }}>{lbl(h)}</div>
-          );
-        })}
+        {hrs.map(h => { const p = pct(h*60); if(p<0||p>100) return null; return <div key={h} style={{ position:"absolute", left:`${p}%`, transform:"translateX(-50%)", fontSize:9, color:"#6e6e8a" }}>{lbl(h)}</div>; })}
       </div>
     </div>
   );
 }
 
+// ─── Task Modal ───────────────────────────────────────────────────────────────
+function TaskModal({ onClose, onSave, colorOptions, initial, allTasks, goals }) {
+  const [name, setName]             = useState(initial?.name || "");
+  const [duration, setDuration]     = useState(initial?.duration || 30);
+  const [startTime, setStartTime]   = useState(initial?.startTime || "08:00");
+  const [category, setCategory]     = useState(initial?.category || "Work");
+  const [color, setColor]           = useState(initial?.color || colorOptions[0]);
+  const [repType, setRepType]       = useState(initial?.repeat?.type || "daily");
+  const [repDays, setRepDays]       = useState(initial?.repeat?.days || []);
+  const [repDates, setRepDates]     = useState(initial?.repeat?.dates || []);
+  const [linkedGoalId, setLinkedGoalId] = useState(initial?.linkedMilestone?.goalId || "");
+  const [linkedMsId, setLinkedMsId]     = useState(initial?.linkedMilestone?.milestoneId || "");
+  const [showLink, setShowLink]         = useState(!!(initial?.linkedMilestone?.goalId));
+
+  const selectedGoal = (goals||[]).find(g => g.id === linkedGoalId);
+  const availableMilestones = selectedGoal?.milestones || [];
+  const cascadePreview = (() => {
+    if (!allTasks) return [];
+    const draft = { id:initial?.id||"__new__", name:name||"New Task", duration:Number(duration), startTime, color, category, repeat:{type:repType,days:repDays,dates:repDates} };
+    const merged = initial ? allTasks.map(t => t.id===initial.id ? draft : t) : [...allTasks, draft];
+    const resolved = resolveOverlaps(merged);
+    return resolved.filter(t => t.id !== draft.id).filter(t => { const orig = allTasks.find(x=>x.id===t.id); return orig && orig.startTime !== t.startTime; }).map(t => ({ name:t.name, from:allTasks.find(x=>x.id===t.id)?.startTime, to:t.startTime }));
+  })();
+
+  const cats = ["Work","Health","Learning","Personal","Creative","Social","Finance","Other"];
+  const toggleDay  = d => setRepDays(p  => p.includes(d) ? p.filter(x=>x!==d) : [...p,d]);
+  const toggleDate = d => setRepDates(p => p.includes(d) ? p.filter(x=>x!==d) : [...p,d]);
+  const repeat = repType==="daily" ? {type:"daily"} : repType==="weekdays" ? {type:"weekdays",days:repDays} : {type:"monthDates",dates:repDates};
+  const linkedMilestone = linkedGoalId ? { goalId:linkedGoalId, milestoneId:linkedMsId||null } : null;
+  const save = () => { if (!name.trim()) return; onSave({ id:initial?.id||"t"+Date.now(), name:name.trim(), duration:Number(duration), startTime, category, color, repeat, linkedMilestone }); };
+
+  return (
+    <Modal onClose={onClose} title={initial ? "Edit Task" : "New Task"}>
+      <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <Field label="Task Name"><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Morning Run" style={inputStyle} autoFocus /></Field>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          <Field label="Start Time"><input type="time" value={startTime} onChange={e=>setStartTime(e.target.value)} style={inputStyle} /></Field>
+          <Field label={`Duration · ${fmtMins(Number(duration))}`}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:6 }}>
+              <input type="range" min="5" max="240" step="5" value={duration} onChange={e=>setDuration(e.target.value)} style={{ flex:1, accentColor:color }} />
+            </div>
+          </Field>
+        </div>
+        <Field label="Category"><select value={category} onChange={e=>setCategory(e.target.value)} style={inputStyle}>{cats.map(c=><option key={c}>{c}</option>)}</select></Field>
+        <Field label="Color">
+          <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
+            {colorOptions.map(c=><div key={c} onClick={()=>setColor(c)} style={{ width:28, height:28, borderRadius:6, background:c, cursor:"pointer", border:color===c?"3px solid #fff":"3px solid transparent" }} />)}
+          </div>
+        </Field>
+        <Field label="Repeat">
+          <div style={{ display:"flex", gap:6, marginBottom:10, flexWrap:"wrap" }}>
+            {[["daily","Every Day"],["weekdays","Weekdays"],["monthDates","Month Dates"]].map(([v,l])=><button key={v} onClick={()=>setRepType(v)} className={`chip${repType===v?" on":""}`}>{l}</button>)}
+          </div>
+          {repType==="weekdays" && <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>{WEEKDAYS.map((d,i) => <button key={i} onClick={()=>toggleDay(i)} className={`chip${repDays.includes(i)?" on":""}`}>{d}</button>)}</div>}
+          {repType==="monthDates" && <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>{MONTH_DATES.map(d => <button key={d} onClick={()=>toggleDate(d)} className={`dchip${repDates.includes(d)?" on":""}`}>{d}</button>)}</div>}
+        </Field>
+        <div style={{ borderTop:"1px solid #181830", paddingTop:14 }}>
+          <button onClick={() => { setShowLink(v=>!v); if(showLink){ setLinkedGoalId(""); setLinkedMsId(""); } }} style={{ display:"flex", alignItems:"center", gap:7, background:"none", border:"none", cursor:"pointer", color:showLink?"#f97316":"#b0b0c8", fontFamily:"inherit", fontSize:12, padding:0, width:"100%" }}>
+            <Icon name="link" size={13} />{showLink ? "Remove Goal Link" : "Link to Goal Milestone"}<span style={{ marginLeft:"auto", fontSize:14, opacity:.5 }}>{showLink?"×":"+"}</span>
+          </button>
+          {showLink && (goals||[]).length === 0 && <div style={{ marginTop:12, fontSize:12, color:"#a0a0bc", background:"#13132a", borderRadius:8, padding:"11px 13px" }}>No goals yet. Create a goal first.</div>}
+          {showLink && (goals||[]).length > 0 && !linkedGoalId && (
+            <div style={{ marginTop:12 }}>
+              <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#a0a0bc", marginBottom:8, textTransform:"uppercase" }}>Select Goal</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {(goals||[]).map(g => (
+                  <div key={g.id} onClick={() => { setLinkedGoalId(g.id); setLinkedMsId(""); }} style={{ background:"#13132a", border:"1px solid #525270", borderRadius:9, padding:"11px 13px", cursor:"pointer" }} onMouseEnter={e=>e.currentTarget.style.borderColor="#f9731660"} onMouseLeave={e=>e.currentTarget.style.borderColor="#525270"}>
+                    <div style={{ fontSize:13, color:"#e8e6f0", fontWeight:500 }}>{g.name}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {showLink && linkedGoalId && selectedGoal && (
+            <div style={{ marginTop:12 }}>
+              <div style={{ background:"#f9731610", border:"1px solid #f9731644", borderRadius:9, padding:"11px 14px", marginBottom:12 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:13, color:"#f97316", fontWeight:500 }}>{selectedGoal.name}</span>
+                  <button onClick={() => { setLinkedGoalId(""); setLinkedMsId(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#b0b0c8", fontSize:11, fontFamily:"inherit", padding:0 }}>✕ change</button>
+                </div>
+              </div>
+              <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#a0a0bc", marginBottom:8, textTransform:"uppercase" }}>Link to Milestone</div>
+              {availableMilestones.length === 0 ? <div style={{ fontSize:12, color:"#a0a0bc", background:"#13132a", borderRadius:8, padding:"11px 13px" }}>No milestones on this goal yet.</div> : (
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {availableMilestones.map(m => {
+                    const isSel = linkedMsId === m.id;
+                    return <div key={m.id} onClick={() => setLinkedMsId(isSel ? "" : m.id)} style={{ display:"flex", alignItems:"center", gap:10, background: isSel?"#f9731614":"#13132a", border:`1px solid ${isSel?"#f9731650":"#1e1e38"}`, borderRadius:8, padding:"10px 13px", cursor:"pointer" }}>
+                      <div style={{ width:16, height:16, borderRadius:"50%", border:`2px solid ${isSel?"#f97316":"#a0a0bc"}`, background:isSel?"#f97316":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{isSel && <div style={{ width:6, height:6, borderRadius:"50%", background:"#fff" }} />}</div>
+                      <span style={{ fontSize:13, color: isSel?"#f97316":"#d8d6e8" }}>{m.name}</span>
+                    </div>;
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <button onClick={save} disabled={!name.trim()} style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"#fff", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px", marginTop:4 }}>
+          {initial ? "SAVE CHANGES" : "ADD TASK"}
+        </button>
+        {cascadePreview.length > 0 && (
+          <div style={{ background:"#1a1205", border:"1px solid #f97316a0", borderRadius:8, padding:"10px 13px" }}>
+            <div style={{ fontSize:10, color:"#f97316", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:7 }}>⏱ Auto-cascade will shift:</div>
+            {cascadePreview.map((c,i) => <div key={i} style={{ fontSize:11, color:"#c09060", marginBottom:3 }}><span style={{ color:"#e8c080" }}>{c.name}</span> {fmt12(c.from)} → <span style={{ color:"#f97316" }}>{fmt12(c.to)}</span></div>)}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Goal Modal ───────────────────────────────────────────────────────────────
 function GoalModal({ onClose, onSave }) {
-  const [name,     setName]     = useState("");
-  const [target,   setTarget]   = useState(100);
-  const [unit,     setUnit]     = useState("sessions");
+  const [name, setName]         = useState("");
+  const [target, setTarget]     = useState(100);
+  const [unit, setUnit]         = useState("sessions");
   const [category, setCategory] = useState("Personal");
   const [deadline, setDeadline] = useState("");
-  const [notes,    setNotes]    = useState("");
+  const [notes, setNotes]       = useState("");
   const cats = ["Health","Career","Learning","Finance","Personal","Other"];
-
   return (
     <Modal onClose={onClose} title="New Goal">
       <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
@@ -2851,24 +1681,16 @@ function GoalModal({ onClose, onSave }) {
           <Field label="Target"><input type="number" value={target} onChange={e=>setTarget(e.target.value)} style={inputStyle} min="1" /></Field>
           <Field label="Unit"><input value={unit} onChange={e=>setUnit(e.target.value)} placeholder="sessions, km…" style={inputStyle} /></Field>
         </div>
-        <Field label="Category">
-          <select value={category} onChange={e=>setCategory(e.target.value)} style={inputStyle}>
-            {cats.map(c=><option key={c}>{c}</option>)}
-          </select>
-        </Field>
+        <Field label="Category"><select value={category} onChange={e=>setCategory(e.target.value)} style={inputStyle}>{cats.map(c=><option key={c}>{c}</option>)}</select></Field>
         <Field label="Deadline (optional)"><input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)} style={inputStyle} /></Field>
         <Field label="Notes (optional)"><textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="What does achieving this mean to you?" style={{ ...inputStyle, minHeight:70, resize:"vertical" }} /></Field>
-        <button onClick={() => { if(!name.trim()) return; onSave({ id:"g"+Date.now(), name:name.trim(), target:Number(target), current:0, unit, category, deadline, notes, milestones:[] }); }}
-          disabled={!name.trim()}
-          style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"#fff", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px", marginTop:4 }}>
-          CREATE GOAL
-        </button>
+        <button onClick={() => { if(!name.trim()) return; onSave({ id:"g"+Date.now(), name:name.trim(), target:Number(target), current:0, unit, category, deadline, notes, milestones:[] }); }} disabled={!name.trim()} style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"#fff", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px", marginTop:4 }}>CREATE GOAL</button>
       </div>
     </Modal>
   );
 }
 
-// ─── Shared ───────────────────────────────────────────────────────────────────
+// ─── Shared Components ────────────────────────────────────────────────────────
 function Modal({ onClose, title, children }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.78)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:500, padding:16 }} onClick={onClose}>
@@ -2897,7 +1719,6 @@ const inputStyle = {
   padding:"10px 12px", color:"#e8e6f0", fontSize:13, outline:"none", fontFamily:"'DM Mono',monospace"
 };
 
-    // Mount the app
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(React.createElement(App));
   </script>
