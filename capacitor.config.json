@@ -17,10 +17,12 @@
     }
   },
   "server": {
+    "iosScheme": "https",
     "androidScheme": "https",
     "allowNavigation": [
       "*.firebaseapp.com",
       "*.googleapis.com",
+      "*.gstatic.com",
       "api.telegram.org"
     ]
   }
