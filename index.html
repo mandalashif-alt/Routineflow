@@ -109,11 +109,15 @@
         self.addEventListener('message', e => {
           if (e.data && e.data.type === 'SHOW_NOTIFICATION') {
             const { title, body, tag } = e.data;
+            // silent:false ensures iOS plays its own default alert sound
+            // vibrate triggers haptic feedback on Android
             self.registration.showNotification(title, {
-              body, tag,
-              icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="%23080810"/><text x="256" y="340" text-anchor="middle" font-family="Arial Black" font-weight="900" font-size="220" fill="%23f97316">RF</text></svg>',
-              vibrate: [200, 100, 200],
+              body,
+              tag,
+              silent: false,
+              vibrate: [300, 100, 300],
               requireInteraction: false,
+              icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="%23080810"/><text x="256" y="340" text-anchor="middle" font-family="Arial Black" font-weight="900" font-size="220" fill="%23f97316">RF</text></svg>',
             });
           }
         });
@@ -295,108 +299,198 @@ function useClock(tz) {
 }
 
 // ─── Notification Engine ──────────────────────────────────────────────────────
-// ─── Sound Engine (Web Audio API — no external files needed) ─────────────────
+// ─── Sound Engine (Web Audio API — redesigned for maximum audibility) ────────
 const RFSound = {
   _ctx: null,
 
-  // Lazily create AudioContext (must be after a user gesture on iOS)
+  // Get/create AudioContext — resumes on iOS after user gesture
   getCtx() {
     if (!this._ctx) {
       try { this._ctx = new (window.AudioContext || window.webkitAudioContext)(); }
       catch(e) { return null; }
     }
-    // iOS suspends AudioContext — resume it
     if (this._ctx.state === 'suspended') this._ctx.resume();
     return this._ctx;
   },
 
-  // Play a single tone: freq (Hz), start (sec offset), duration (sec), volume 0-1, type
-  _tone(ctx, freq, start, dur, vol=0.5, type='sine') {
+  // Core tone builder — uses square wave by default for maximum loudness
+  // Adds a compressor to prevent distortion at high volumes
+  _tone(ctx, freq, startSec, durSec, vol=0.7, type='square') {
+    const now = ctx.currentTime;
+    const t   = now + startSec;
+
     const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -6;
+    comp.knee.value      = 3;
+    comp.ratio.value     = 4;
+
     osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type      = type;
-    osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
-    gain.gain.setValueAtTime(0, ctx.currentTime + start);
-    gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
-    osc.start(ctx.currentTime + start);
-    osc.stop(ctx.currentTime + start + dur + 0.05);
+    gain.connect(comp);
+    comp.connect(ctx.destination);
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+
+    // Sharp attack, exponential decay — sounds like a real alert
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(vol, t + 0.008);  // 8ms attack
+    gain.gain.exponentialRampToValueAtTime(vol * 0.7, t + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + durSec);
+
+    osc.start(t);
+    osc.stop(t + durSec + 0.02);
   },
 
-  // ── Sound styles ──────────────────────────────────────────────────────────
-
-  // Gentle chime — 3 ascending tones (like a doorbell)
-  chime(vol=0.6) {
+  // 🎵 CHIME — 3-note ascending melody (doorbell style)
+  // Uses triangle wave — clear, musical, audible
+  chime(vol=0.8) {
     const ctx = this.getCtx(); if (!ctx) return;
-    this._tone(ctx, 523, 0.00, 0.5, vol, 'sine');   // C5
-    this._tone(ctx, 659, 0.25, 0.5, vol, 'sine');   // E5
-    this._tone(ctx, 784, 0.50, 0.8, vol, 'sine');   // G5
-  },
-
-  // Alert bell — 2 quick double-rings (like a school bell)
-  bell(vol=0.6) {
-    const ctx = this.getCtx(); if (!ctx) return;
-    [0, 0.15, 0.5, 0.65].forEach(t => {
-      this._tone(ctx, 880, t, 0.12, vol, 'square');
-      this._tone(ctx, 1100, t, 0.12, vol*0.4, 'sine');
+    const notes = [523, 659, 784]; // C5, E5, G5
+    notes.forEach((f, i) => {
+      this._tone(ctx, f, i * 0.22, 0.35, vol, 'triangle');
+      // Add a quiet overtone for richness
+      this._tone(ctx, f * 2, i * 0.22, 0.2, vol * 0.15, 'sine');
     });
   },
 
-  // Ringtone — classic phone ring pattern
-  ringtone(vol=0.6) {
+  // 🔔 BELL — 2 sharp double-rings (school bell / alert)
+  bell(vol=0.8) {
     const ctx = this.getCtx(); if (!ctx) return;
-    // Two bursts of alternating tones like a real ringtone
-    const burst = (offset) => {
-      for (let i = 0; i < 6; i++) {
-        const freq = i % 2 === 0 ? 480 : 440;
-        this._tone(ctx, freq, offset + i * 0.1, 0.09, vol, 'sawtooth');
-      }
-    };
-    burst(0.0);
-    burst(0.8);
+    [0, 0.18, 0.55, 0.73].forEach(t => {
+      this._tone(ctx, 880,  t,      0.14, vol,       'square');
+      this._tone(ctx, 1320, t,      0.10, vol * 0.3, 'triangle');
+    });
   },
 
-  // Soft ping — single gentle note (for end-of-task)
-  ping(vol=0.5) {
+  // 📱 RINGTONE — classic iPhone-style dual-tone ring
+  ringtone(vol=0.8) {
     const ctx = this.getCtx(); if (!ctx) return;
-    this._tone(ctx, 660, 0, 0.6, vol, 'sine');
-    this._tone(ctx, 990, 0.05, 0.4, vol*0.3, 'sine');
+    // Two burst groups separated by silence — like a real phone ring
+    const burst = (offset) => {
+      for (let i = 0; i < 8; i++) {
+        const freq = i % 2 === 0 ? 480 : 620;
+        this._tone(ctx, freq, offset + i * 0.07, 0.065, vol, 'square');
+      }
+    };
+    burst(0.0);  // ring...
+    burst(0.75); // ring...
+  },
+
+  // ✨ PING — 2 quick ascending pings (like a message notification)
+  ping(vol=0.75) {
+    const ctx = this.getCtx(); if (!ctx) return;
+    this._tone(ctx, 880,  0.00, 0.18, vol,       'triangle');
+    this._tone(ctx, 1320, 0.15, 0.22, vol * 0.8, 'triangle');
+    this._tone(ctx, 880,  0.0,  0.1,  vol * 0.2, 'sine'); // soft body
   },
 
   // Play by name
-  play(name='chime', vol=0.6) {
+  play(name='bell', vol=0.8) {
     try {
-      if (name === 'bell')     this.bell(vol);
-      else if (name === 'ringtone') this.ringtone(vol);
-      else if (name === 'ping') this.ping(vol);
-      else this.chime(vol);
+      // Always resume context first (critical for iOS)
+      const ctx = this.getCtx();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().then(() => this._playByName(name, vol));
+      } else {
+        this._playByName(name, vol);
+      }
     } catch(e) { console.warn('RFSound error:', e); }
+  },
+
+  _playByName(name, vol) {
+    if      (name === 'chime')    this.chime(vol);
+    else if (name === 'bell')     this.bell(vol);
+    else if (name === 'ringtone') this.ringtone(vol);
+    else if (name === 'ping')     this.ping(vol);
+    else                          this.bell(vol); // safe default
   }
 };
 
-// ─── Notification Engine ──────────────────────────────────────────────────────
+// ─── Telegram Engine ──────────────────────────────────────────────────────────
+const RFTelegram = {
+  // Load saved credentials
+  load() {
+    try {
+      const raw = localStorage.getItem('rf_telegram');
+      return raw ? JSON.parse(raw) : { token:'', chatId:'', enabled:false };
+    } catch { return { token:'', chatId:'', enabled:false }; }
+  },
+
+  // Save credentials
+  save(cfg) {
+    try { localStorage.setItem('rf_telegram', JSON.stringify(cfg)); } catch {}
+  },
+
+  // Send a message via Telegram Bot API
+  async send(text, cfg) {
+    const c = cfg || this.load();
+    if (!c.enabled || !c.token || !c.chatId) return false;
+    try {
+      const res = await fetch(
+        `https://api.telegram.org/bot${c.token}/sendMessage`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id:    c.chatId,
+            text:       text,
+            parse_mode: 'HTML',
+          })
+        }
+      );
+      const json = await res.json();
+      return json.ok === true;
+    } catch(e) {
+      console.warn('[RFTelegram] send failed:', e);
+      return false;
+    }
+  },
+
+  // Test connection — returns { ok, error }
+  async test(token, chatId) {
+    try {
+      const res  = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id:    chatId,
+          text:       '✅ <b>RoutineFlow connected!</b>\n\nYou will now receive task alerts here.',
+          parse_mode: 'HTML',
+        })
+      });
+      const json = await res.json();
+      if (json.ok) return { ok: true };
+      return { ok: false, error: json.description || 'Unknown error' };
+    } catch(e) {
+      return { ok: false, error: 'Network error — check token and try again.' };
+    }
+  }
+};
+
+
 const RFNotify = {
   _timers: [],
 
-  // Request permission — must be called from user gesture
   async requestPermission() {
     if (!('Notification' in window)) return 'unsupported';
     if (Notification.permission === 'granted') return 'granted';
     if (Notification.permission === 'denied')  return 'denied';
-    // Unlock audio at the same time as permission (iOS requires user gesture)
-    RFSound.getCtx();
-    const result = await Notification.requestPermission();
-    return result;
+    RFSound.getCtx(); // unlock audio at same gesture
+    return await Notification.requestPermission();
   },
 
-  // Show a notification + play sound
+  // Show notification + play sound + send Telegram
   async show(title, body, tag, soundName, volume) {
-    // Always play sound if app is open (foreground)
-    RFSound.play(soundName || 'chime', volume || 0.6);
+    // 1. Play sound (foreground)
+    RFSound.play(soundName || 'chime', volume ?? 0.6);
 
-    // System notification (background + lock screen)
+    // 2. Telegram message — works when app is minimised/background
+    const tgText = `🔔 <b>RoutineFlow</b>\n${title}\n<i>${body}</i>`;
+    RFTelegram.send(tgText);
+
+    // 3. System notification
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     try {
       const sw = window._swReg || (navigator.serviceWorker && await navigator.serviceWorker.ready);
@@ -410,13 +504,19 @@ const RFNotify = {
     }
   },
 
-  // Clear all scheduled timers
   clearAll() {
     this._timers.forEach(id => clearTimeout(id));
     this._timers = [];
   },
 
-  // Schedule notifications + sounds for today's tasks
+  // Save upcoming schedule to localStorage so app can re-arm after reopen
+  _saveSchedule(entries) {
+    try { localStorage.setItem('rf_sched', JSON.stringify(entries)); } catch {}
+  },
+  _loadSchedule() {
+    try { return JSON.parse(localStorage.getItem('rf_sched')) || []; } catch { return []; }
+  },
+
   scheduleTasks(tasks, timezone, settings) {
     this.clearAll();
     if (!settings.enabled) return;
@@ -426,49 +526,75 @@ const RFNotify = {
     const sound    = settings.sound  || 'chime';
     const volume   = (settings.volume ?? 70) / 100;
 
+    // Build full schedule list — used both for timers AND for persistent storage
+    const entries = [];
+
     tasks.forEach(task => {
       if (!task.startTime) return;
-      const taskDate   = new Date(todayStr + 'T' + task.startTime + ':00');
-      const taskEndMs  = taskDate.getTime() + (task.duration || 30) * 60000;
-      const msUntilStart = taskDate - now;
-      const msUntilEnd   = taskEndMs - now;
+      const taskStart = new Date(todayStr + 'T' + task.startTime + ':00');
+      const taskEnd   = new Date(taskStart.getTime() + (task.duration || 30) * 60000);
+      const msStart   = taskStart - now;
+      const msEnd     = taskEnd   - now;
+      const msWarn    = msStart - 5 * 60000; // 5 min before
+      const msWarn1   = msStart - 60000;     // 1 min before (fallback if <5min away)
 
-      // 5-min warning — gentle chime
-      if (settings.fiveMin && msUntilStart > 5 * 60000) {
-        const id = setTimeout(() => {
-          this.show(
-            `⏰ Starting in 5 minutes`,
-            `${task.name} — ${fmt12(task.startTime)}`,
-            `rf-warn-${task.id}`, 'chime', volume * 0.7
-          );
-        }, msUntilStart - 5 * 60000);
-        this._timers.push(id);
+      if (settings.fiveMin) {
+        if (msWarn > 0) {
+          // Normal 5-min warning — use selected sound at slightly lower volume
+          entries.push({ at: taskStart.getTime() - 5*60000, title:`⏰ Starting in 5 minutes`, body:`${task.name} — ${fmt12(task.startTime)}`, tag:`rf-warn-${task.id}`, sound: sound, volume: volume * 0.85 });
+        } else if (msWarn1 > 0) {
+          // Task is < 5 min away — give a 1-min warning instead
+          entries.push({ at: taskStart.getTime() - 60000, title:`⏰ Starting in 1 minute`, body:`${task.name} — ${fmt12(task.startTime)}`, tag:`rf-warn1-${task.id}`, sound: sound, volume: volume * 0.85 });
+        }
       }
 
-      // At start — full ringtone/bell to grab attention
-      if (settings.onStart && msUntilStart > 0) {
-        const id = setTimeout(() => {
-          this.show(
-            `▶ ${task.name}`,
-            `Starting now · ${fmt12(task.startTime)}`,
-            `rf-start-${task.id}`, sound, volume
-          );
-        }, msUntilStart);
-        this._timers.push(id);
+      if (settings.onStart && msStart > 0) {
+        entries.push({ at: taskStart.getTime(), title:`▶ ${task.name}`, body:`Starting now · ${fmt12(task.startTime)}`, tag:`rf-start-${task.id}`, sound, volume });
       }
 
-      // At end — soft ping
-      if (settings.onEnd && msUntilEnd > 0) {
+      if (settings.onEnd && msEnd > 0) {
+        entries.push({ at: taskEnd.getTime(), title:`✓ ${task.name} complete`, body:`Well done! Task finished.`, tag:`rf-end-${task.id}`, sound:'ping', volume: volume*0.8 });
+      }
+    });
+
+    // Save to localStorage so re-arm can pick them up on page reopen
+    this._saveSchedule(entries);
+
+    // Set all setTimeout timers for this session
+    entries.forEach(entry => {
+      const ms = entry.at - Date.now();
+      if (ms > 0) {
         const id = setTimeout(() => {
-          this.show(
-            `✓ ${task.name} complete`,
-            `Well done! Task finished.`,
-            `rf-end-${task.id}`, 'ping', volume * 0.8
-          );
-        }, msUntilEnd);
+          this.show(entry.title, entry.body, entry.tag, entry.sound, entry.volume);
+        }, ms);
         this._timers.push(id);
       }
     });
+
+    console.log(`[RFNotify] Scheduled ${entries.length} alerts for today`);
+  },
+
+  // Called on page reopen / visibility change — catch up on anything missed
+  rearmFromStorage() {
+    const entries = this._loadSchedule();
+    if (!entries.length) return;
+    const now = Date.now();
+    let rearmed = 0;
+    entries.forEach(entry => {
+      const ms = entry.at - now;
+      // Fire missed alerts within last 10 min immediately (with small stagger)
+      if (ms < 0 && ms > -10 * 60000) {
+        setTimeout(() => this.show(entry.title, entry.body, entry.tag, entry.sound, entry.volume), 600 + rearmed * 800);
+        rearmed++;
+      } else if (ms > 0) {
+        const id = setTimeout(() => {
+          this.show(entry.title, entry.body, entry.tag, entry.sound, entry.volume);
+        }, ms);
+        this._timers.push(id);
+        rearmed++;
+      }
+    });
+    if (rearmed) console.log(`[RFNotify] Re-armed ${rearmed} alerts`);
   }
 };
 
@@ -513,6 +639,143 @@ function NotifBanner({ onGranted, onDismiss }) {
           Not now
         </button>
       </div>
+    </div>
+  );
+}
+
+// ─── Telegram Settings Component ─────────────────────────────────────────────
+function TelegramSettings() {
+  const [cfg,     setCfg]     = useState(() => RFTelegram.load());
+  const [status,  setStatus]  = useState(null); // null | 'testing' | 'ok' | 'error'
+  const [errMsg,  setErrMsg]  = useState('');
+  const [showHelp,setShowHelp]= useState(false);
+
+  const handleSave = (newCfg) => {
+    setCfg(newCfg);
+    RFTelegram.save(newCfg);
+  };
+
+  const handleTest = async () => {
+    if (!cfg.token || !cfg.chatId) {
+      setStatus('error'); setErrMsg('Please enter both Bot Token and Chat ID first.');
+      return;
+    }
+    setStatus('testing');
+    const result = await RFTelegram.test(cfg.token.trim(), cfg.chatId.trim());
+    if (result.ok) {
+      setStatus('ok');
+      handleSave({ ...cfg, token: cfg.token.trim(), chatId: cfg.chatId.trim(), enabled: true });
+    } else {
+      setStatus('error');
+      setErrMsg(result.error || 'Failed. Check your token and chat ID.');
+    }
+  };
+
+  const inputStyle = {
+    width:"100%", background:"#0a0a18", border:"1px solid #242444", borderRadius:8,
+    padding:"9px 12px", color:"#fff", fontSize:12, fontFamily:"'DM Mono',monospace",
+    outline:"none", boxSizing:"border-box", marginTop:5,
+  };
+
+  return (
+    <div style={{ marginTop:16, borderTop:"1px solid #181830", paddingTop:16 }}>
+      {/* Header row */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:20 }}>✈️</span>
+          <div>
+            <div style={{ fontSize:13, color:"#fff", fontWeight:600 }}>Telegram Alerts</div>
+            <div style={{ fontSize:10, color:"#6e6e8a" }}>Fire even when app is minimised</div>
+          </div>
+        </div>
+        {/* Master toggle for Telegram */}
+        <div onClick={() => handleSave({ ...cfg, enabled: !cfg.enabled })}
+          style={{ width:44, height:26, borderRadius:13, background:cfg.enabled && cfg.token && cfg.chatId ? "#2AABEE":"#252540", position:"relative", cursor:"pointer", transition:"background 0.2s", flexShrink:0 }}>
+          <div style={{ position:"absolute", top:3, left: cfg.enabled && cfg.token && cfg.chatId ? 20:3, width:20, height:20, borderRadius:"50%", background:"#fff", transition:"left 0.2s", boxShadow:"0 1px 4px rgba(0,0,0,.5)" }} />
+        </div>
+      </div>
+
+      {/* Status badge */}
+      {cfg.token && cfg.chatId && (
+        <div style={{ marginBottom:10, display:"flex", alignItems:"center", gap:6, fontSize:11 }}>
+          <span style={{ width:7, height:7, borderRadius:"50%", background: cfg.enabled ? "#2AABEE":"#525270", display:"inline-block", flexShrink:0 }} />
+          <span style={{ color: cfg.enabled ? "#2AABEE":"#6e6e8a" }}>
+            {cfg.enabled ? "Connected — alerts will be sent to Telegram" : "Connected but disabled"}
+          </span>
+        </div>
+      )}
+
+      {/* Fields */}
+      <div style={{ marginBottom:8 }}>
+        <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1px", textTransform:"uppercase" }}>Bot Token</div>
+        <input style={inputStyle} type="password"
+          placeholder="1234567890:ABCdef..."
+          value={cfg.token}
+          onChange={e => handleSave({ ...cfg, token: e.target.value, enabled: false })}
+        />
+      </div>
+      <div style={{ marginBottom:10 }}>
+        <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1px", textTransform:"uppercase" }}>Chat ID</div>
+        <input style={inputStyle} type="text"
+          placeholder="123456789"
+          value={cfg.chatId}
+          onChange={e => handleSave({ ...cfg, chatId: e.target.value, enabled: false })}
+        />
+      </div>
+
+      {/* Status message */}
+      {status === 'ok' && (
+        <div style={{ background:"#0d1a0d", border:"1px solid #2AABEE55", borderRadius:7, padding:"8px 12px", marginBottom:10, fontSize:12, color:"#2AABEE" }}>
+          ✅ Connected! Check your Telegram — a test message was sent.
+        </div>
+      )}
+      {status === 'error' && (
+        <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:7, padding:"8px 12px", marginBottom:10, fontSize:12, color:"#f87090" }}>
+          ❌ {errMsg}
+        </div>
+      )}
+
+      {/* Buttons */}
+      <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+        <button onClick={handleTest} disabled={status==='testing'}
+          style={{ flex:1, background:"#2AABEE22", border:"1px solid #2AABEE55", borderRadius:8, padding:"9px", color:"#2AABEE", fontSize:12, fontFamily:"inherit", cursor:"pointer", fontWeight:600 }}>
+          {status==='testing' ? "Sending…" : "✈️ Test Connection"}
+        </button>
+        {cfg.token && cfg.chatId && (
+          <button onClick={() => { handleSave({ token:'', chatId:'', enabled:false }); setStatus(null); }}
+            style={{ background:"none", border:"1px solid #252545", borderRadius:8, padding:"9px 12px", color:"#6e6e8a", fontSize:12, fontFamily:"inherit", cursor:"pointer" }}>
+            Disconnect
+          </button>
+        )}
+      </div>
+
+      {/* Setup guide toggle */}
+      <button onClick={() => setShowHelp(h => !h)}
+        style={{ background:"none", border:"none", color:"#f97316", fontSize:12, fontFamily:"inherit", cursor:"pointer", padding:0, textDecoration:"underline" }}>
+        {showHelp ? "Hide setup guide" : "How to set up Telegram (2 min)"}
+      </button>
+
+      {showHelp && (
+        <div style={{ marginTop:12, background:"#0f0f1e", border:"1px solid #1e1e38", borderRadius:9, padding:"13px 14px" }}>
+          <div style={{ fontSize:12, color:"#f97316", fontWeight:600, marginBottom:10 }}>Telegram Setup — 3 steps</div>
+          {[
+            ["1", "Get Bot Token", 'Open Telegram → search "@BotFather" → send /newbot → follow prompts → copy the token it gives you'],
+            ["2", "Get Chat ID",   'Search "@userinfobot" in Telegram → send /start → copy the "Id" number it shows you'],
+            ["3", "Connect",       'Paste both values above → tap "Test Connection" → you will receive a test message in Telegram'],
+          ].map(([n, title, desc]) => (
+            <div key={n} style={{ display:"flex", gap:10, marginBottom:10, alignItems:"flex-start" }}>
+              <div style={{ width:20, height:20, borderRadius:"50%", background:"#f97316", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0, marginTop:1 }}>{n}</div>
+              <div>
+                <div style={{ fontSize:12, color:"#fff", fontWeight:600 }}>{title}</div>
+                <div style={{ fontSize:11, color:"#a0a0bc", marginTop:2, lineHeight:1.5 }}>{desc}</div>
+              </div>
+            </div>
+          ))}
+          <div style={{ marginTop:4, fontSize:10, color:"#525270", lineHeight:1.6 }}>
+            Once connected, every task alert (5-min warning, start, end) will be sent to your Telegram with the Telegram notification sound — even when RoutineFlow is minimised.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -642,15 +905,35 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
           </div>
         </div>
 
-        <div style={{ marginTop:18 }}>
+        {/* ── Telegram Section ── */}
+        <TelegramSettings />
+
+        <div style={{ marginTop:14 }}>
           <button onClick={onClose}
             style={{ width:"100%", background:"#f97316", border:"none", borderRadius:10, padding:"13px", color:"#fff", fontSize:14, fontFamily:"inherit", cursor:"pointer", fontWeight:700 }}>
             Save & Close
           </button>
         </div>
 
-        <div style={{ marginTop:12, fontSize:10, color:"#525270", lineHeight:1.7, textAlign:"center" }}>
-          Sound plays when app is open. Lock screen alerts need app installed to Home Screen on iPhone.
+        {/* How it works box */}
+        <div style={{ marginTop:14, background:"#131328", borderRadius:9, padding:"11px 13px" }}>
+          <div style={{ fontSize:11, color:"#a0a0bc", fontWeight:600, marginBottom:8 }}>How notifications work</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+            {[
+              ["✅", "App open",          "Custom sound plays + notification fires on time"],
+              ["✅", "App minimised",      "Telegram message fires with full sound on lock screen ✅"],
+              ["✅", "Telegram connected", "Alerts fire even if app is in background"],
+              ["⚠️", "App fully closed",  "Open app once each morning — alerts arm automatically"],
+            ].map(([icon, label, desc]) => (
+              <div key={label} style={{ display:"flex", gap:8, alignItems:"flex-start" }}>
+                <span style={{ fontSize:13, flexShrink:0 }}>{icon}</span>
+                <div>
+                  <span style={{ fontSize:11, color:"#e8e6f0", fontWeight:600 }}>{label}: </span>
+                  <span style={{ fontSize:11, color:"#6e6e8a" }}>{desc}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -866,7 +1149,7 @@ function App() {
   const [syncReady, setSyncReady] = useState(false);
 
   // ── Notification state ───────────────────────────────────────────────────────
-  const defaultNotifSettings = { enabled:true, fiveMin:true, onStart:true, onEnd:false, sound:'chime', volume:70 };
+  const defaultNotifSettings = { enabled:true, fiveMin:true, onStart:true, onEnd:false, sound:'bell', volume:80 };
   const [notifPermission,  setNotifPermission]  = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
   const [notifSettings,    setNotifSettings]    = useState(() => {
     try { return JSON.parse(localStorage.getItem('rf_notif_settings')) || defaultNotifSettings; } catch { return defaultNotifSettings; }
@@ -886,6 +1169,18 @@ function App() {
   useEffect(() => {
     localStorage.setItem('rf_notif_settings', JSON.stringify(notifSettings));
   }, [notifSettings]);
+
+  // Re-arm schedule when app comes back to foreground after being minimised
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && user && notifSettings.enabled) {
+        // Small delay to let React state settle
+        setTimeout(() => RFNotify.rearmFromStorage(), 300);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [user, notifSettings.enabled]);
 
   // tkey must be defined before the scheduling useEffect below
   const tkey = todayKey(timezone);
