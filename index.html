@@ -62,7 +62,10 @@
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const isStandalone = window.navigator.standalone;
     const bannerDismissed = localStorage.getItem('rf_banner_dismissed');
-    if (isIos && !isStandalone && !bannerDismissed) {
+    // isCapacitorNative: true when running as sideloaded native app (not PWA)
+    const isCapacitorNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    // Never show "Add to Home Screen" when already running as a Capacitor native app
+    if (isIos && !isStandalone && !bannerDismissed && !isCapacitorNative) {
       setTimeout(() => {
         document.getElementById('ios-banner').style.display = 'block';
       }, 3000);
@@ -454,6 +457,8 @@ function NotifBanner({ onGranted, onDismiss }) {
   const [loading, setLoading] = useState(false);
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone = window.navigator.standalone;
+  // In Capacitor the app IS native — treat it like standalone for notification purposes
+  const isCapacitorApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const handleEnable = async () => {
     setLoading(true);
     const result = await RFNotify.requestPermission();
@@ -461,7 +466,7 @@ function NotifBanner({ onGranted, onDismiss }) {
     if (result === 'granted') onGranted();
     else if (result === 'denied') onDismiss();
   };
-  if (isIos && !isStandalone) {
+  if (isIos && !isStandalone && !isCapacitorApp) {
     return (
       <div style={{ margin:"0 0 14px", background:"#1a1a0a", border:"1px solid #f9731644", borderRadius:10, padding:"13px 16px" }}>
         <div style={{ fontSize:13, color:"#f97316", fontWeight:600, marginBottom:6 }}>📲 Install app first for notifications</div>
