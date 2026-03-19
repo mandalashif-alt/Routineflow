@@ -387,99 +387,240 @@ const RFTelegram = {
   }
 };
 
-// ─── Notification Engine ──────────────────────────────────────────────────────
-const RFNotify = {
-  _timers: [],
+// ─── Capacitor Local Notifications helper ────────────────────────────────────
+// Uses native iOS notifications when in Capacitor (works in background/lock screen)
+// Falls back to Web Notifications API in browser
+const CapNotif = {
+  // Get the native plugin — only available inside Capacitor
+  get plugin() {
+    try { return window.Capacitor?.Plugins?.LocalNotifications || null; }
+    catch { return null; }
+  },
+
+  isNative() {
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && this.plugin);
+  },
+
   async requestPermission() {
+    if (this.isNative()) {
+      try {
+        const result = await this.plugin.requestPermissions();
+        return result.display === 'granted' ? 'granted' : 'denied';
+      } catch(e) { return 'denied'; }
+    }
+    // Browser fallback
     if (!('Notification' in window)) return 'unsupported';
     if (Notification.permission === 'granted') return 'granted';
     if (Notification.permission === 'denied')  return 'denied';
-    RFSound.getCtx();
     return await Notification.requestPermission();
   },
-  async show(title, body, tag, soundName, volume) {
-    RFSound.play(soundName || 'chime', volume ?? 0.6);
-    RFTelegram.send(`🔔 <b>RoutineFlow</b>\n${title}\n<i>${body}</i>`);
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    try {
-      const sw = window._swReg || (navigator.serviceWorker && await navigator.serviceWorker.ready);
-      if (sw && sw.active) { sw.active.postMessage({ type:'SHOW_NOTIFICATION', title, body, tag }); }
-      else { new Notification(title, { body, tag }); }
-    } catch(e) { try { new Notification(title, { body, tag }); } catch {} }
+
+  async checkPermission() {
+    if (this.isNative()) {
+      try {
+        const result = await this.plugin.checkPermissions();
+        return result.display;
+      } catch { return 'denied'; }
+    }
+    return typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
   },
-  clearAll() { this._timers.forEach(id => clearTimeout(id)); this._timers = []; },
-  _saveSchedule(entries) { try { localStorage.setItem('rf_sched', JSON.stringify(entries)); } catch {} },
-  _loadSchedule() { try { return JSON.parse(localStorage.getItem('rf_sched')) || []; } catch { return []; } },
-  scheduleTasks(tasks, timezone, settings) {
+
+  // Schedule a notification at a specific future timestamp (ms)
+  async scheduleAt(id, title, body, atMs, sound) {
+    if (this.isNative()) {
+      try {
+        await this.plugin.schedule({
+          notifications: [{
+            id: Math.abs(id % 2147483647),
+            title,
+            body,
+            schedule: { at: new Date(atMs) },
+            sound: sound === 'none' ? null : 'default',
+            smallIcon: 'ic_stat_icon',
+            actionTypeId: '',
+            extra: null,
+          }]
+        });
+      } catch(e) { console.warn('[CapNotif] schedule failed:', e); }
+    } else {
+      // Browser: use setTimeout
+      const ms = atMs - Date.now();
+      if (ms > 0) {
+        setTimeout(() => {
+          try { new Notification(title, { body, tag: String(id) }); } catch {}
+          RFSound.play('bell', 0.8);
+        }, ms);
+      }
+    }
+  },
+
+  async cancelAll() {
+    if (this.isNative()) {
+      try {
+        const pending = await this.plugin.getPending();
+        if (pending.notifications && pending.notifications.length) {
+          await this.plugin.cancel({ notifications: pending.notifications });
+        }
+      } catch(e) { console.warn('[CapNotif] cancelAll failed:', e); }
+    }
+  }
+};
+
+// ─── Notification Engine ──────────────────────────────────────────────────────
+const RFNotify = {
+  _timers: [],
+
+  async requestPermission() {
+    RFSound.getCtx(); // unlock audio at same gesture
+    return await CapNotif.requestPermission();
+  },
+
+  async checkPermission() {
+    return await CapNotif.checkPermission();
+  },
+
+  // Show an immediate notification (for foreground use)
+  async show(title, body, tag, soundName, volume) {
+    // Always play sound in foreground
+    RFSound.play(soundName || 'bell', volume ?? 0.8);
+    // Send Telegram backup
+    RFTelegram.send(`🔔 <b>RoutineFlow</b>\n${title}\n<i>${body}</i>`);
+    // Native or browser notification
+    if (CapNotif.isNative()) {
+      try {
+        await CapNotif.plugin.schedule({
+          notifications: [{
+            id: Math.floor(Math.random() * 99999),
+            title, body,
+            schedule: { at: new Date(Date.now() + 500) },
+            sound: 'default',
+          }]
+        });
+      } catch {}
+    } else {
+      if (Notification.permission === 'granted') {
+        try { new Notification(title, { body, tag }); } catch {}
+      }
+    }
+  },
+
+  clearAll() {
+    this._timers.forEach(id => clearTimeout(id));
+    this._timers = [];
+    CapNotif.cancelAll();
+  },
+
+  _saveSchedule(entries) {
+    try { localStorage.setItem('rf_sched', JSON.stringify(entries)); } catch {}
+  },
+  _loadSchedule() {
+    try { return JSON.parse(localStorage.getItem('rf_sched')) || []; } catch { return []; } 
+  },
+
+  async scheduleTasks(tasks, timezone, settings) {
     this.clearAll();
     if (!settings.enabled) return;
-    const now = new Date();
+
+    const perm = await CapNotif.checkPermission();
+    if (perm !== 'granted') {
+      console.log('[RFNotify] Permission not granted — skipping schedule');
+      return;
+    }
+
+    const now      = new Date();
     const todayStr = now.toLocaleDateString('en-CA', { timeZone: timezone });
-    const sound = settings.sound || 'chime';
-    const volume = (settings.volume ?? 70) / 100;
-    const entries = [];
+    const sound    = settings.sound || 'bell';
+    const volume   = (settings.volume ?? 80) / 100;
+    const entries  = [];
+    let   idBase   = Date.now();
+
     tasks.forEach(task => {
       if (!task.startTime) return;
       const taskStart = new Date(todayStr + 'T' + task.startTime + ':00');
       const taskEnd   = new Date(taskStart.getTime() + (task.duration || 30) * 60000);
       const msStart   = taskStart - now;
-      const msEnd     = taskEnd - now;
-      const msWarn    = msStart - 5 * 60000;
-      const msWarn1   = msStart - 60000;
+      const msEnd     = taskEnd   - now;
+
+      // 5-min warning
       if (settings.fiveMin) {
-        if (msWarn > 0) entries.push({ at: taskStart.getTime() - 5*60000, title:`⏰ Starting in 5 minutes`, body:`${task.name} — ${fmt12(task.startTime)}`, tag:`rf-warn-${task.id}`, sound, volume: volume * 0.85 });
-        else if (msWarn1 > 0) entries.push({ at: taskStart.getTime() - 60000, title:`⏰ Starting in 1 minute`, body:`${task.name} — ${fmt12(task.startTime)}`, tag:`rf-warn1-${task.id}`, sound, volume: volume * 0.85 });
+        const msWarn = msStart - 5 * 60000;
+        if (msWarn > 0) {
+          entries.push({ id: idBase++, at: taskStart.getTime() - 5*60000, title: '⏰ Starting in 5 minutes', body: `${task.name} — ${fmt12(task.startTime)}`, sound });
+        } else if (msStart - 60000 > 0) {
+          entries.push({ id: idBase++, at: taskStart.getTime() - 60000, title: '⏰ Starting in 1 minute', body: `${task.name} — ${fmt12(task.startTime)}`, sound });
+        }
       }
-      if (settings.onStart && msStart > 0) entries.push({ at: taskStart.getTime(), title:`▶ ${task.name}`, body:`Starting now · ${fmt12(task.startTime)}`, tag:`rf-start-${task.id}`, sound, volume });
-      if (settings.onEnd && msEnd > 0) entries.push({ at: taskEnd.getTime(), title:`✓ ${task.name} complete`, body:`Well done! Task finished.`, tag:`rf-end-${task.id}`, sound:'ping', volume: volume*0.8 });
+
+      // Task start
+      if (settings.onStart && msStart > 0) {
+        entries.push({ id: idBase++, at: taskStart.getTime(), title: `▶ ${task.name}`, body: `Starting now · ${fmt12(task.startTime)}`, sound });
+      }
+
+      // Task end
+      if (settings.onEnd && msEnd > 0) {
+        entries.push({ id: idBase++, at: taskEnd.getTime(), title: `✓ ${task.name} complete`, body: 'Well done! Task finished.', sound: 'ping' });
+      }
     });
+
+    // Save for re-arm on app reopen
     this._saveSchedule(entries);
-    entries.forEach(entry => {
+
+    // Schedule all natively
+    for (const entry of entries) {
+      await CapNotif.scheduleAt(entry.id, entry.title, entry.body, entry.at, entry.sound);
+      // Also set browser setTimeout for foreground sound
       const ms = entry.at - Date.now();
-      if (ms > 0) { const id = setTimeout(() => { this.show(entry.title, entry.body, entry.tag, entry.sound, entry.volume); }, ms); this._timers.push(id); }
-    });
+      if (ms > 0 && ms < 86400000) {
+        const id = setTimeout(() => {
+          RFSound.play(entry.sound || 'bell', volume);
+        }, ms);
+        this._timers.push(id);
+      }
+    }
+
+    console.log(`[RFNotify] Scheduled ${entries.length} notifications`);
   },
-  rearmFromStorage() {
+
+  async rearmFromStorage() {
     const entries = this._loadSchedule();
     if (!entries.length) return;
     const now = Date.now();
     let rearmed = 0;
-    entries.forEach(entry => {
+    for (const entry of entries) {
       const ms = entry.at - now;
-      if (ms < 0 && ms > -10 * 60000) { setTimeout(() => this.show(entry.title, entry.body, entry.tag, entry.sound, entry.volume), 600 + rearmed * 800); rearmed++; }
-      else if (ms > 0) { const id = setTimeout(() => { this.show(entry.title, entry.body, entry.tag, entry.sound, entry.volume); }, ms); this._timers.push(id); rearmed++; }
-    });
+      if (ms < 0 && ms > -10 * 60000) {
+        // Missed within last 10 min — fire immediately
+        setTimeout(() => this.show(entry.title, entry.body, String(entry.id), entry.sound, 0.8), 800 + rearmed * 600);
+        rearmed++;
+      } else if (ms > 0) {
+        await CapNotif.scheduleAt(entry.id, entry.title, entry.body, entry.at, entry.sound);
+        const id = setTimeout(() => RFSound.play(entry.sound || 'bell', 0.8), ms);
+        this._timers.push(id);
+        rearmed++;
+      }
+    }
+    if (rearmed) console.log(`[RFNotify] Re-armed ${rearmed} alerts`);
   }
 };
 
 // ─── Notification Permission Banner ──────────────────────────────────────────
 function NotifBanner({ onGranted, onDismiss }) {
   const [loading, setLoading] = useState(false);
-  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isStandalone = window.navigator.standalone;
-  // In Capacitor the app IS native — treat it like standalone for notification purposes
-  const isCapacitorApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
   const handleEnable = async () => {
     setLoading(true);
     const result = await RFNotify.requestPermission();
     setLoading(false);
     if (result === 'granted') onGranted();
-    else if (result === 'denied') onDismiss();
+    else onDismiss();
   };
-  if (isIos && !isStandalone && !isCapacitorApp) {
-    return (
-      <div style={{ margin:"0 0 14px", background:"#1a1a0a", border:"1px solid #f9731644", borderRadius:10, padding:"13px 16px" }}>
-        <div style={{ fontSize:13, color:"#f97316", fontWeight:600, marginBottom:6 }}>📲 Install app first for notifications</div>
-        <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.6 }}>
-          To receive task notifications on iPhone, first tap <b style={{color:"#fff"}}>Share ↑</b> in Safari → <b style={{color:"#fff"}}>Add to Home Screen</b>, then reopen from your home screen.
-        </div>
-      </div>
-    );
-  }
+
   return (
     <div style={{ margin:"0 0 14px", background:"#0d1a0d", border:"1px solid #10b98144", borderRadius:10, padding:"13px 16px" }}>
       <div style={{ fontSize:13, color:"#10b981", fontWeight:600, marginBottom:6 }}>🔔 Enable task notifications</div>
-      <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.6, marginBottom:10 }}>Get notified 5 minutes before tasks start, when they begin, and when they end.</div>
+      <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.6, marginBottom:10 }}>
+        Get alerted before tasks start, when they begin, and when they end — even when the app is in the background.
+      </div>
       <div style={{ display:"flex", gap:8 }}>
         <button onClick={handleEnable} disabled={loading}
           style={{ background:"#10b981", border:"none", borderRadius:7, padding:"7px 16px", color:"#fff", fontSize:12, fontFamily:"inherit", cursor:"pointer", fontWeight:600 }}>
@@ -494,92 +635,37 @@ function NotifBanner({ onGranted, onDismiss }) {
   );
 }
 
-// ─── Telegram Settings ────────────────────────────────────────────────────────
-function TelegramSettings() {
-  const [cfg, setCfg] = useState(() => RFTelegram.load());
-  const [status, setStatus] = useState(null);
-  const [errMsg, setErrMsg] = useState('');
-  const [showHelp, setShowHelp] = useState(false);
-  const handleSave = (newCfg) => { setCfg(newCfg); RFTelegram.save(newCfg); };
-  const handleTest = async () => {
-    if (!cfg.token || !cfg.chatId) { setStatus('error'); setErrMsg('Please enter both Bot Token and Chat ID first.'); return; }
-    setStatus('testing');
-    const result = await RFTelegram.test(cfg.token.trim(), cfg.chatId.trim());
-    if (result.ok) { setStatus('ok'); handleSave({ ...cfg, token: cfg.token.trim(), chatId: cfg.chatId.trim(), enabled: true }); }
-    else { setStatus('error'); setErrMsg(result.error || 'Failed. Check your token and chat ID.'); }
-  };
-  const inputStyle = { width:"100%", background:"#0a0a18", border:"1px solid #242444", borderRadius:8, padding:"9px 12px", color:"#fff", fontSize:12, fontFamily:"'DM Mono',monospace", outline:"none", boxSizing:"border-box", marginTop:5 };
-  return (
-    <div style={{ marginTop:16, borderTop:"1px solid #181830", paddingTop:16 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:20 }}>✈️</span>
-          <div>
-            <div style={{ fontSize:13, color:"#fff", fontWeight:600 }}>Telegram Alerts</div>
-            <div style={{ fontSize:10, color:"#6e6e8a" }}>Fire even when app is minimised</div>
-          </div>
-        </div>
-        <div onClick={() => handleSave({ ...cfg, enabled: !cfg.enabled })}
-          style={{ width:44, height:26, borderRadius:13, background:cfg.enabled && cfg.token && cfg.chatId ? "#2AABEE":"#252540", position:"relative", cursor:"pointer", transition:"background 0.2s", flexShrink:0 }}>
-          <div style={{ position:"absolute", top:3, left: cfg.enabled && cfg.token && cfg.chatId ? 20:3, width:20, height:20, borderRadius:"50%", background:"#fff", transition:"left 0.2s", boxShadow:"0 1px 4px rgba(0,0,0,.5)" }} />
-        </div>
-      </div>
-      <div style={{ marginBottom:8 }}>
-        <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1px", textTransform:"uppercase" }}>Bot Token</div>
-        <input style={inputStyle} type="password" placeholder="1234567890:ABCdef..." value={cfg.token} onChange={e => handleSave({ ...cfg, token: e.target.value, enabled: false })} />
-      </div>
-      <div style={{ marginBottom:10 }}>
-        <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1px", textTransform:"uppercase" }}>Chat ID</div>
-        <input style={inputStyle} type="text" placeholder="123456789" value={cfg.chatId} onChange={e => handleSave({ ...cfg, chatId: e.target.value, enabled: false })} />
-      </div>
-      {status === 'ok' && <div style={{ background:"#0d1a0d", border:"1px solid #2AABEE55", borderRadius:7, padding:"8px 12px", marginBottom:10, fontSize:12, color:"#2AABEE" }}>✅ Connected! Check your Telegram.</div>}
-      {status === 'error' && <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:7, padding:"8px 12px", marginBottom:10, fontSize:12, color:"#f87090" }}>❌ {errMsg}</div>}
-      <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-        <button onClick={handleTest} disabled={status==='testing'}
-          style={{ flex:1, background:"#2AABEE22", border:"1px solid #2AABEE55", borderRadius:8, padding:"9px", color:"#2AABEE", fontSize:12, fontFamily:"inherit", cursor:"pointer", fontWeight:600 }}>
-          {status==='testing' ? "Sending…" : "✈️ Test Connection"}
-        </button>
-        {cfg.token && cfg.chatId && (
-          <button onClick={() => { handleSave({ token:'', chatId:'', enabled:false }); setStatus(null); }}
-            style={{ background:"none", border:"1px solid #252545", borderRadius:8, padding:"9px 12px", color:"#6e6e8a", fontSize:12, fontFamily:"inherit", cursor:"pointer" }}>
-            Disconnect
-          </button>
-        )}
-      </div>
-      <button onClick={() => setShowHelp(h => !h)}
-        style={{ background:"none", border:"none", color:"#f97316", fontSize:12, fontFamily:"inherit", cursor:"pointer", padding:0, textDecoration:"underline" }}>
-        {showHelp ? "Hide setup guide" : "How to set up Telegram (2 min)"}
-      </button>
-      {showHelp && (
-        <div style={{ marginTop:12, background:"#0f0f1e", border:"1px solid #1e1e38", borderRadius:9, padding:"13px 14px" }}>
-          <div style={{ fontSize:12, color:"#f97316", fontWeight:600, marginBottom:10 }}>Telegram Setup — 3 steps</div>
-          {[["1","Get Bot Token",'Open Telegram → search "@BotFather" → send /newbot → copy the token'],["2","Get Chat ID",'Search "@userinfobot" → send /start → copy the Id number'],["3","Connect",'Paste both values above → tap "Test Connection"']].map(([n,title,desc]) => (
-            <div key={n} style={{ display:"flex", gap:10, marginBottom:10, alignItems:"flex-start" }}>
-              <div style={{ width:20, height:20, borderRadius:"50%", background:"#f97316", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0, marginTop:1 }}>{n}</div>
-              <div><div style={{ fontSize:12, color:"#fff", fontWeight:600 }}>{title}</div><div style={{ fontSize:11, color:"#a0a0bc", marginTop:2, lineHeight:1.5 }}>{desc}</div></div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Notification Settings Panel ──────────────────────────────────────────────
 function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
-  const [testing, setTesting] = React.useState(null);
-  const vol = (settings.volume ?? 70) / 100;
+  const [testing,  setTesting]  = React.useState(null);
+  const [permInfo, setPermInfo] = React.useState('checking');
+  const vol = (settings.volume ?? 80) / 100;
+
+  // Check native permission status on open
+  React.useEffect(() => {
+    CapNotif.checkPermission().then(p => setPermInfo(p));
+  }, []);
+
   const sounds = [
-    { id:'chime', label:'🎵 Chime', desc:'Gentle 3-tone melody' },
-    { id:'bell', label:'🔔 Bell', desc:'Double alert ring' },
+    { id:'chime',    label:'🎵 Chime',    desc:'Gentle 3-tone melody' },
+    { id:'bell',     label:'🔔 Bell',     desc:'Double alert ring' },
     { id:'ringtone', label:'📱 Ringtone', desc:'Classic phone ring' },
-    { id:'ping', label:'✨ Ping', desc:'Single soft note' },
+    { id:'ping',     label:'✨ Ping',     desc:'Single soft note' },
   ];
+
   const handleTest = (soundId) => {
-    setTesting(soundId); RFSound.getCtx();
+    setTesting(soundId);
+    RFSound.getCtx();
     setTimeout(() => { RFSound.play(soundId, vol); }, 50);
     setTimeout(() => setTesting(null), 1800);
   };
+
+  const handleRequestPerm = async () => {
+    const result = await RFNotify.requestPermission();
+    setPermInfo(result);
+    onChange({ ...settings, enabled: result === 'granted' });
+  };
+
   const Toggle = ({ label, sublabel, value, onToggle, disabled }) => (
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 0", borderBottom:"1px solid #181830", opacity:disabled?0.4:1 }}>
       <div>
@@ -592,37 +678,87 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
       </div>
     </div>
   );
-  const now = new Date();
+
+  // Next upcoming task countdown
+  const now      = new Date();
   const todayStr = now.toLocaleDateString('en-CA', { timeZone: timezone });
-  const upcoming = (tasks||[]).filter(t => t.startTime && taskAppliesToDate(t, todayStr)).map(t => ({ ...t, ms: new Date(todayStr+'T'+t.startTime+':00') - now })).filter(t => t.ms > 0).sort((a,b) => a.ms - b.ms)[0];
+  const upcoming = (tasks||[])
+    .filter(t => t.startTime && taskAppliesToDate(t, todayStr))
+    .map(t => ({ ...t, ms: new Date(todayStr+'T'+t.startTime+':00') - now }))
+    .filter(t => t.ms > 0)
+    .sort((a,b) => a.ms - b.ms)[0];
   const fmtCountdown = ms => { const m = Math.ceil(ms/60000); return m < 60 ? `${m}m` : `${Math.floor(m/60)}h ${m%60}m`; };
+
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", zIndex:1000, display:"flex", alignItems:"flex-end" }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ width:"100%", background:"#0e0e1d", borderRadius:"18px 18px 0 0", padding:"20px 18px 36px", maxHeight:"90vh", overflowY:"auto" }}>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", zIndex:1000, display:"flex", alignItems:"flex-end" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ width:"100%", background:"#0e0e1d", borderRadius:"18px 18px 0 0", padding:"20px 18px 40px", maxHeight:"92vh", overflowY:"auto" }}>
+
+        {/* Header */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:700, color:"#fff" }}>🔔 Notifications & Sound</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:700, color:"#fff" }}>🔔 Notifications</div>
           <button onClick={onClose} style={{ background:"none", border:"none", color:"#6e6e8a", fontSize:20, cursor:"pointer", padding:4, lineHeight:1 }}>✕</button>
         </div>
-        {upcoming && settings.enabled && (
-          <div style={{ background:"#0d1a0d", border:"1px solid #10b98133", borderRadius:9, padding:"10px 14px", marginBottom:16, display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ fontSize:22 }}>⏰</span>
+
+        {/* Permission status card */}
+        {permInfo !== 'granted' ? (
+          <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
+            <div style={{ fontSize:13, color:"#f43f5e", fontWeight:600, marginBottom:6 }}>⚠️ Notifications not enabled</div>
+            <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.6, marginBottom:12 }}>
+              iOS needs permission to show alerts when tasks start. Tap below to allow.
+            </div>
+            <button onClick={handleRequestPerm}
+              style={{ background:"#f97316", border:"none", borderRadius:8, padding:"10px 20px", color:"#fff", fontSize:13, fontFamily:"inherit", cursor:"pointer", fontWeight:600, width:"100%" }}>
+              Allow Notifications
+            </button>
+            <div style={{ marginTop:10, fontSize:11, color:"#525270", lineHeight:1.5 }}>
+              If you already denied permission, go to:<br/>
+              <b style={{color:"#a0a0bc"}}>iPhone Settings → RoutineFlow → Notifications → Allow</b>
+            </div>
+          </div>
+        ) : (
+          <div style={{ background:"#0d1a0d", border:"1px solid #10b98133", borderRadius:10, padding:"10px 14px", marginBottom:16, display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:20 }}>✅</span>
             <div>
-              <div style={{ fontSize:12, color:"#10b981", fontWeight:600 }}>Next alert in {fmtCountdown(upcoming.ms)}</div>
-              <div style={{ fontSize:11, color:"#6e6e8a", marginTop:2 }}>{upcoming.name} — {fmt12(upcoming.startTime)}</div>
+              <div style={{ fontSize:12, color:"#10b981", fontWeight:600 }}>Notifications active</div>
+              {upcoming && settings.enabled
+                ? <div style={{ fontSize:11, color:"#6e6e8a", marginTop:2 }}>Next: {upcoming.name} in {fmtCountdown(upcoming.ms)}</div>
+                : <div style={{ fontSize:11, color:"#6e6e8a", marginTop:2 }}>Alerts will fire natively on your iPhone</div>
+              }
             </div>
           </div>
         )}
-        <Toggle label="Notifications & sounds enabled" sublabel="Master switch for all alerts" value={settings.enabled} onToggle={() => onChange({...settings, enabled:!settings.enabled})} />
-        <Toggle label="5-minute warning" sublabel="Gentle chime 5 mins before task starts" value={settings.fiveMin} onToggle={() => onChange({...settings, fiveMin:!settings.fiveMin})} disabled={!settings.enabled} />
-        <Toggle label="Task starts" sublabel="Full alert sound when task begins" value={settings.onStart} onToggle={() => onChange({...settings, onStart:!settings.onStart})} disabled={!settings.enabled} />
-        <Toggle label="Task ends" sublabel="Soft ping when task is done" value={settings.onEnd} onToggle={() => onChange({...settings, onEnd:!settings.onEnd})} disabled={!settings.enabled} />
-        <div style={{ marginTop:16, paddingBottom:14, borderBottom:"1px solid #181830", opacity:settings.enabled?1:0.4 }}>
-          <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:12 }}>Alert Sound</div>
+
+        {/* Master toggle */}
+        <Toggle label="Notifications enabled" sublabel="Master switch for all task alerts"
+          value={settings.enabled}
+          onToggle={() => onChange({...settings, enabled:!settings.enabled})}
+          disabled={permInfo !== 'granted'} />
+
+        {/* Individual triggers */}
+        <Toggle label="5-minute warning" sublabel="Alert 5 mins before task starts"
+          value={settings.fiveMin}
+          onToggle={() => onChange({...settings, fiveMin:!settings.fiveMin})}
+          disabled={!settings.enabled || permInfo !== 'granted'} />
+
+        <Toggle label="Task starts" sublabel="Alert when task begins"
+          value={settings.onStart}
+          onToggle={() => onChange({...settings, onStart:!settings.onStart})}
+          disabled={!settings.enabled || permInfo !== 'granted'} />
+
+        <Toggle label="Task ends" sublabel="Alert when task is done"
+          value={settings.onEnd}
+          onToggle={() => onChange({...settings, onEnd:!settings.onEnd})}
+          disabled={!settings.enabled || permInfo !== 'granted'} />
+
+        {/* Sound picker */}
+        <div style={{ marginTop:16, paddingBottom:14, borderBottom:"1px solid #181830", opacity:settings.enabled && permInfo==='granted'?1:0.4 }}>
+          <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:12 }}>In-App Sound</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             {sounds.map(s => (
               <div key={s.id}
                 style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:settings.sound===s.id?"#f9731620":"#131328", border:`1px solid ${settings.sound===s.id?"#f97316":"#242444"}`, borderRadius:9, padding:"9px 11px", cursor:"pointer" }}
-                onClick={() => settings.enabled && onChange({...settings, sound:s.id})}>
+                onClick={() => onChange({...settings, sound:s.id})}>
                 <div>
                   <div style={{ fontSize:12, color:settings.sound===s.id?"#f97316":"#e8e6f0", fontWeight:settings.sound===s.id?600:400 }}>{s.label}</div>
                   <div style={{ fontSize:10, color:"#6e6e8a", marginTop:2 }}>{s.desc}</div>
@@ -635,21 +771,47 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
             ))}
           </div>
         </div>
-        <div style={{ paddingTop:14, paddingBottom:14, borderBottom:"1px solid #181830", opacity:settings.enabled?1:0.4 }}>
+
+        {/* Volume */}
+        <div style={{ paddingTop:14, paddingBottom:14, borderBottom:"1px solid #181830", opacity:settings.enabled && permInfo==='granted'?1:0.4 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-            <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase" }}>Volume</div>
-            <div style={{ fontSize:14, color:"#f97316", fontWeight:700 }}>{settings.volume ?? 70}%</div>
+            <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase" }}>In-App Volume</div>
+            <div style={{ fontSize:14, color:"#f97316", fontWeight:700 }}>{settings.volume ?? 80}%</div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <span style={{ fontSize:16 }}>🔈</span>
-            <input type="range" min="10" max="100" step="5" value={settings.volume ?? 70} onChange={e => onChange({...settings, volume:parseInt(e.target.value)})} style={{ flex:1, accentColor:"#f97316", cursor:"pointer" }} />
+            <input type="range" min="10" max="100" step="5" value={settings.volume ?? 80}
+              onChange={e => onChange({...settings, volume:parseInt(e.target.value)})}
+              style={{ flex:1, accentColor:"#f97316", cursor:"pointer" }} />
             <span style={{ fontSize:16 }}>🔊</span>
           </div>
+          <div style={{ fontSize:10, color:"#525270", marginTop:6 }}>
+            iOS lock screen alerts use your iPhone's system volume.
+          </div>
         </div>
+
+        {/* Telegram */}
         <TelegramSettings />
-        <div style={{ marginTop:14 }}>
-          <button onClick={onClose} style={{ width:"100%", background:"#f97316", border:"none", borderRadius:10, padding:"13px", color:"#fff", fontSize:14, fontFamily:"inherit", cursor:"pointer", fontWeight:700 }}>Save & Close</button>
+
+        {/* How it works */}
+        <div style={{ marginTop:16, background:"#131328", borderRadius:9, padding:"11px 13px" }}>
+          <div style={{ fontSize:11, color:"#a0a0bc", fontWeight:600, marginBottom:8 }}>How notifications work on iPhone</div>
+          {[
+            ["✅", "App open or background", "Native iOS alert fires with sound"],
+            ["✅", "Lock screen",             "Full notification with banner + sound"],
+            ["✅", "Telegram connected",       "Backup message even if app is force-closed"],
+            ["⚠️", "App force-closed",         "Open app once each morning to arm alerts"],
+          ].map(([icon, label, desc]) => (
+            <div key={label} style={{ display:"flex", gap:8, alignItems:"flex-start", marginBottom:7 }}>
+              <span style={{ fontSize:12, flexShrink:0 }}>{icon}</span>
+              <div><span style={{ fontSize:11, color:"#e8e6f0", fontWeight:600 }}>{label}: </span><span style={{ fontSize:11, color:"#6e6e8a" }}>{desc}</span></div>
+            </div>
+          ))}
         </div>
+
+        <button onClick={onClose} style={{ width:"100%", marginTop:16, background:"#f97316", border:"none", borderRadius:10, padding:"13px", color:"#fff", fontSize:14, fontFamily:"inherit", cursor:"pointer", fontWeight:700 }}>
+          Done
+        </button>
       </div>
     </div>
   );
@@ -839,12 +1001,22 @@ function App() {
   const [syncReady, setSyncReady] = useState(false);
 
   const defaultNotifSettings = { enabled:true, fiveMin:true, onStart:true, onEnd:false, sound:'bell', volume:80 };
-  const [notifPermission,  setNotifPermission]  = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const [notifPermission,  setNotifPermission]  = useState('default'); // updated async on mount
   const [notifSettings,    setNotifSettings]    = useState(() => { try { return JSON.parse(localStorage.getItem('rf_notif_settings')) || defaultNotifSettings; } catch { return defaultNotifSettings; } });
   const [showNotifBanner,  setShowNotifBanner]  = useState(false);
   const [showNotifPanel,   setShowNotifPanel]   = useState(false);
 
-  useEffect(() => { if (user && notifPermission === 'default') { const dismissed = localStorage.getItem('rf_notif_dismissed'); if (!dismissed) setTimeout(() => setShowNotifBanner(true), 2000); } }, [user]);
+  // Check native permission status on mount and after login
+  useEffect(() => {
+    if (!user) return;
+    CapNotif.checkPermission().then(perm => {
+      setNotifPermission(perm);
+      if (perm !== 'granted') {
+        const dismissed = localStorage.getItem('rf_notif_dismissed');
+        if (!dismissed) setTimeout(() => setShowNotifBanner(true), 2500);
+      }
+    });
+  }, [user]);
   useEffect(() => { localStorage.setItem('rf_notif_settings', JSON.stringify(notifSettings)); }, [notifSettings]);
   useEffect(() => {
     const handleVisibility = () => { if (document.visibilityState === 'visible' && user && notifSettings.enabled) setTimeout(() => RFNotify.rearmFromStorage(), 300); };
@@ -988,7 +1160,7 @@ function App() {
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <div title={user.email} style={{ width:30, height:30, borderRadius:"50%", background:"linear-gradient(135deg,#f97316,#f43f5e)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0 }}>{initials}</div>
-            <button onClick={() => notifPermission==='granted' ? setShowNotifPanel(true) : setShowNotifBanner(true)}
+            <button onClick={() => setShowNotifPanel(true)}
               style={{ flexShrink:0, background: notifPermission==='granted' && notifSettings.enabled ? "#10b98114":"#1a1a2e", border:`1px solid ${notifPermission==='granted' && notifSettings.enabled ? "#10b98155":"#252545"}`, borderRadius:7, padding:"4px 8px", cursor:"pointer", fontSize:15 }}>
               {notifPermission==='granted' && notifSettings.enabled ? "🔔" : "🔕"}
             </button>
