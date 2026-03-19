@@ -355,122 +355,6 @@ const RFSound = {
   }
 };
 
-// ─── Telegram Engine ──────────────────────────────────────────────────────────
-const RFTelegram = {
-  load() {
-    try { const raw = localStorage.getItem('rf_telegram'); return raw ? JSON.parse(raw) : { token:'', chatId:'', enabled:false }; }
-    catch { return { token:'', chatId:'', enabled:false }; }
-  },
-  save(cfg) { try { localStorage.setItem('rf_telegram', JSON.stringify(cfg)); } catch {} },
-  async send(text, cfg) {
-    const c = cfg || this.load();
-    if (!c.enabled || !c.token || !c.chatId) return false;
-    try {
-      const res = await fetch(`https://api.telegram.org/bot${c.token}/sendMessage`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: c.chatId, text, parse_mode: 'HTML' })
-      });
-      const json = await res.json();
-      return json.ok === true;
-    } catch(e) { return false; }
-  },
-  async test(token, chatId) {
-    try {
-      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: '✅ <b>RoutineFlow connected!</b>\n\nYou will now receive task alerts here.', parse_mode: 'HTML' })
-      });
-      const json = await res.json();
-      if (json.ok) return { ok: true };
-      return { ok: false, error: json.description || 'Unknown error' };
-    } catch(e) { return { ok: false, error: 'Network error — check token and try again.' }; }
-  }
-};
-
-// ─── Capacitor Local Notifications helper ────────────────────────────────────
-// Uses native iOS notifications when in Capacitor (works in background/lock screen)
-// Falls back to Web Notifications API in browser
-const CapNotif = {
-  // Get the native plugin — only available inside Capacitor
-  get plugin() {
-    try { return window.Capacitor?.Plugins?.LocalNotifications || null; }
-    catch { return null; }
-  },
-
-  isNative() {
-    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && this.plugin);
-  },
-
-  async requestPermission() {
-    try {
-      if (this.isNative()) {
-        const result = await this.plugin.requestPermissions();
-        return result?.display === 'granted' ? 'granted' : 'denied';
-      }
-      if (!('Notification' in window)) return 'default';
-      if (Notification.permission === 'granted') return 'granted';
-      if (Notification.permission === 'denied')  return 'denied';
-      return await Notification.requestPermission();
-    } catch(e) {
-      console.warn('[CapNotif] requestPermission error:', e);
-      return 'default';
-    }
-  },
-
-  async checkPermission() {
-    try {
-      if (this.isNative()) {
-        const result = await this.plugin.checkPermissions();
-        return result?.display || 'default';
-      }
-      return typeof Notification !== 'undefined' ? Notification.permission : 'default';
-    } catch(e) {
-      console.warn('[CapNotif] checkPermission error:', e);
-      return 'default';
-    }
-  },
-
-  // Schedule a notification at a specific future timestamp (ms)
-  async scheduleAt(id, title, body, atMs, sound) {
-    if (this.isNative()) {
-      try {
-        await this.plugin.schedule({
-          notifications: [{
-            id: Math.abs(id % 2147483647),
-            title,
-            body,
-            schedule: { at: new Date(atMs) },
-            sound: sound === 'none' ? null : 'default',
-            smallIcon: 'ic_stat_icon',
-            actionTypeId: '',
-            extra: null,
-          }]
-        });
-      } catch(e) { console.warn('[CapNotif] schedule failed:', e); }
-    } else {
-      // Browser: use setTimeout
-      const ms = atMs - Date.now();
-      if (ms > 0) {
-        setTimeout(() => {
-          try { new Notification(title, { body, tag: String(id) }); } catch {}
-          RFSound.play('bell', 0.8);
-        }, ms);
-      }
-    }
-  },
-
-  async cancelAll() {
-    if (this.isNative()) {
-      try {
-        const pending = await this.plugin.getPending();
-        if (pending.notifications && pending.notifications.length) {
-          await this.plugin.cancel({ notifications: pending.notifications });
-        }
-      } catch(e) { console.warn('[CapNotif] cancelAll failed:', e); }
-    }
-  }
-};
-
 // ─── Notification Engine ──────────────────────────────────────────────────────
 const RFNotify = {
   _timers: [],
@@ -488,8 +372,6 @@ const RFNotify = {
   async show(title, body, tag, soundName, volume) {
     // Always play sound in foreground
     RFSound.play(soundName || 'bell', volume ?? 0.8);
-    // Send Telegram backup
-    RFTelegram.send(`🔔 <b>RoutineFlow</b>\n${title}\n<i>${body}</i>`);
     // Native or browser notification
     if (CapNotif.isNative()) {
       try {
@@ -800,16 +682,13 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
           </div>
         </div>
 
-        {/* Telegram */}
-        <TelegramSettings />
-
         {/* How it works */}
         <div style={{ marginTop:16, background:"#131328", borderRadius:9, padding:"11px 13px" }}>
           <div style={{ fontSize:11, color:"#a0a0bc", fontWeight:600, marginBottom:8 }}>How notifications work on iPhone</div>
           {[
             ["✅", "App open or background", "Native iOS alert fires with sound"],
             ["✅", "Lock screen",             "Full notification with banner + sound"],
-            ["✅", "Telegram connected",       "Backup message even if app is force-closed"],
+
             ["⚠️", "App force-closed",         "Open app once each morning to arm alerts"],
           ].map(([icon, label, desc]) => (
             <div key={label} style={{ display:"flex", gap:8, alignItems:"flex-start", marginBottom:7 }}>
