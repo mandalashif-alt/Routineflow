@@ -355,6 +355,89 @@ const RFSound = {
   }
 };
 
+// ─── Capacitor Notification Helper ───────────────────────────────────────────
+const CapNotif = {
+
+  _isCapacitor() {
+    try { return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
+    catch { return false; }
+  },
+  _plugin() {
+    try { return window.Capacitor?.Plugins?.LocalNotifications || null; }
+    catch { return null; }
+  },
+  _hasPlugin() {
+    const p = this._plugin();
+    return !!(p && typeof p.requestPermissions === 'function');
+  },
+  isNative() {
+    return this._isCapacitor() && this._hasPlugin();
+  },
+  get plugin() { return this._plugin(); },
+
+  async checkPermission() {
+    try {
+      if (this.isNative()) {
+        const r = await this._plugin().checkPermissions();
+        return r?.display || 'default';
+      }
+      if (typeof Notification !== 'undefined') return Notification.permission;
+      return 'default';
+    } catch(e) { console.warn('[CapNotif] checkPermission:', e.message); return 'default'; }
+  },
+
+  async requestPermission() {
+    try {
+      // Try Capacitor plugin first
+      if (this._isCapacitor() && this._hasPlugin()) {
+        console.log('[CapNotif] Using Capacitor plugin');
+        const r = await this._plugin().requestPermissions();
+        return r?.display === 'granted' ? 'granted' : 'denied';
+      }
+      // Fallback: Web Notifications API (works on iOS 16.4+)
+      if (typeof Notification !== 'undefined') {
+        console.log('[CapNotif] Using Web Notifications API');
+        if (Notification.permission === 'granted') return 'granted';
+        const result = await Notification.requestPermission();
+        return result;
+      }
+      return 'default';
+    } catch(e) { console.warn('[CapNotif] requestPermission:', e.message); return 'default'; }
+  },
+
+  async scheduleAt(id, title, body, atMs, sound) {
+    const ms = atMs - Date.now();
+    if (ms <= 0) return;
+    try {
+      if (this.isNative()) {
+        await this._plugin().schedule({
+          notifications: [{
+            id: Math.abs(id % 2147483647), title, body,
+            schedule: { at: new Date(atMs) },
+            sound: 'default', actionTypeId: '', extra: null,
+          }]
+        });
+        return;
+      }
+      // Fallback setTimeout
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        setTimeout(() => { try { new Notification(title, { body }); } catch {} }, ms);
+      }
+    } catch(e) { console.warn('[CapNotif] scheduleAt:', e.message); }
+  },
+
+  async cancelAll() {
+    try {
+      if (this.isNative()) {
+        const pending = await this._plugin().getPending();
+        if (pending?.notifications?.length) {
+          await this._plugin().cancel({ notifications: pending.notifications });
+        }
+      }
+    } catch(e) { console.warn('[CapNotif] cancelAll:', e.message); }
+  }
+};
+
 // ─── Notification Engine ──────────────────────────────────────────────────────
 const RFNotify = {
   _timers: [],
@@ -553,9 +636,19 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
   };
 
   const handleRequestPerm = async () => {
+    // First try plugin/web API
     const result = await RFNotify.requestPermission();
     setPermInfo(result);
-    onChange({ ...settings, enabled: result === 'granted' });
+    if (result === 'granted') {
+      onChange({ ...settings, enabled: true });
+    } else if (result === 'denied') {
+      // Already denied — user must go to Settings
+      setPermInfo('denied');
+    } else {
+      // 'default' means the dialog didn't show (plugin not available)
+      // On iOS, direct user to Settings app
+      setPermInfo('needs-settings');
+    }
   };
 
   const Toggle = ({ label, sublabel, value, onToggle, disabled }) => (
@@ -596,17 +689,45 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
         {permInfo !== 'granted' ? (
           <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
             <div style={{ fontSize:13, color:"#f43f5e", fontWeight:600, marginBottom:6 }}>⚠️ Notifications not enabled</div>
-            <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.6, marginBottom:12 }}>
-              iOS needs permission to show alerts when tasks start. Tap below to allow.
-            </div>
-            <button onClick={handleRequestPerm}
-              style={{ background:"#f97316", border:"none", borderRadius:8, padding:"10px 20px", color:"#fff", fontSize:13, fontFamily:"inherit", cursor:"pointer", fontWeight:600, width:"100%" }}>
-              Allow Notifications
-            </button>
-            <div style={{ marginTop:10, fontSize:11, color:"#525270", lineHeight:1.5 }}>
-              If you already denied permission, go to:<br/>
-              <b style={{color:"#a0a0bc"}}>iPhone Settings → RoutineFlow → Notifications → Allow</b>
-            </div>
+
+            {permInfo === 'denied' || permInfo === 'needs-settings' ? (
+              // Already denied or plugin unavailable — guide to Settings
+              <div>
+                <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.7, marginBottom:12 }}>
+                  To enable notifications, open your iPhone Settings:
+                </div>
+                <div style={{ background:"#0f0f1e", borderRadius:8, padding:"12px 14px", marginBottom:12 }}>
+                  {[
+                    "1. Open iPhone  Settings  app",
+                    "2. Scroll down → tap  RoutineFlow",
+                    "3. Tap  Notifications",
+                    "4. Turn on  Allow Notifications",
+                    "5. Come back and reopen this panel",
+                  ].map((step, i) => (
+                    <div key={i} style={{ fontSize:12, color:"#c0bdd8", lineHeight:1.8 }}>{step}</div>
+                  ))}
+                </div>
+                <button onClick={handleRequestPerm}
+                  style={{ background:"#525270", border:"none", borderRadius:8, padding:"10px 20px", color:"#fff", fontSize:12, fontFamily:"inherit", cursor:"pointer", width:"100%" }}>
+                  Try Again
+                </button>
+              </div>
+            ) : (
+              // First time — show Allow button
+              <div>
+                <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.6, marginBottom:12 }}>
+                  iOS needs permission to show alerts when tasks start. Tap below to allow.
+                </div>
+                <button onClick={handleRequestPerm}
+                  style={{ background:"#f97316", border:"none", borderRadius:8, padding:"10px 20px", color:"#fff", fontSize:13, fontFamily:"inherit", cursor:"pointer", fontWeight:600, width:"100%" }}>
+                  Allow Notifications
+                </button>
+                <div style={{ marginTop:10, fontSize:11, color:"#525270", lineHeight:1.5 }}>
+                  If the dialog doesn't appear, go to:<br/>
+                  <b style={{color:"#a0a0bc"}}>iPhone Settings → RoutineFlow → Notifications → Allow</b>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ background:"#0d1a0d", border:"1px solid #10b98133", borderRadius:10, padding:"10px 14px", marginBottom:16, display:"flex", alignItems:"center", gap:10 }}>
