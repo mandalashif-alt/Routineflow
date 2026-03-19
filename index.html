@@ -402,27 +402,32 @@ const CapNotif = {
   },
 
   async requestPermission() {
-    if (this.isNative()) {
-      try {
+    try {
+      if (this.isNative()) {
         const result = await this.plugin.requestPermissions();
-        return result.display === 'granted' ? 'granted' : 'denied';
-      } catch(e) { return 'denied'; }
+        return result?.display === 'granted' ? 'granted' : 'denied';
+      }
+      if (!('Notification' in window)) return 'default';
+      if (Notification.permission === 'granted') return 'granted';
+      if (Notification.permission === 'denied')  return 'denied';
+      return await Notification.requestPermission();
+    } catch(e) {
+      console.warn('[CapNotif] requestPermission error:', e);
+      return 'default';
     }
-    // Browser fallback
-    if (!('Notification' in window)) return 'unsupported';
-    if (Notification.permission === 'granted') return 'granted';
-    if (Notification.permission === 'denied')  return 'denied';
-    return await Notification.requestPermission();
   },
 
   async checkPermission() {
-    if (this.isNative()) {
-      try {
+    try {
+      if (this.isNative()) {
         const result = await this.plugin.checkPermissions();
-        return result.display;
-      } catch { return 'denied'; }
+        return result?.display || 'default';
+      }
+      return typeof Notification !== 'undefined' ? Notification.permission : 'default';
+    } catch(e) {
+      console.warn('[CapNotif] checkPermission error:', e);
+      return 'default';
     }
-    return typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
   },
 
   // Schedule a notification at a specific future timestamp (ms)
@@ -641,9 +646,14 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
   const [permInfo, setPermInfo] = React.useState('checking');
   const vol = (settings.volume ?? 80) / 100;
 
-  // Check native permission status on open
+  // Check native permission status on open — delayed to let Capacitor load
   React.useEffect(() => {
-    CapNotif.checkPermission().then(p => setPermInfo(p));
+    const timer = setTimeout(() => {
+      CapNotif.checkPermission()
+        .then(p => setPermInfo(p || 'default'))
+        .catch(() => setPermInfo('default'));
+    }, 300);
+    return () => clearTimeout(timer);
   }, []);
 
   const sounds = [
@@ -983,6 +993,32 @@ function AuthScreen({ onAuth }) {
   );
 }
 
+// ─── Error Boundary ──────────────────────────────────────────────────────────────
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, info) { console.error('[RoutineFlow] Render error:', error, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ position:"fixed", inset:0, background:"#0e0e1d", display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'DM Mono',monospace", zIndex:9999 }}>
+          <div style={{ background:"#120a0a", border:"1px solid #f43f5e44", borderRadius:12, padding:24, maxWidth:340, width:"100%" }}>
+            <div style={{ fontSize:14, color:"#f43f5e", fontWeight:600, marginBottom:10 }}>⚠️ Something went wrong</div>
+            <div style={{ fontSize:11, color:"#a0a0bc", lineHeight:1.6, marginBottom:16, wordBreak:"break-word" }}>
+              {this.state.error?.message || "Unknown error"}
+            </div>
+            <button onClick={() => this.setState({ hasError: false, error: null })}
+              style={{ width:"100%", background:"#f97316", border:"none", borderRadius:8, padding:"11px", color:"#fff", fontSize:13, fontFamily:"inherit", cursor:"pointer" }}>
+              Try Again
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ─── App Root ─────────────────────────────────────────────────────────────────
 function App() {
   const [tab,          setTab]          = useState("today");
@@ -1009,13 +1045,20 @@ function App() {
   // Check native permission status on mount and after login
   useEffect(() => {
     if (!user) return;
-    CapNotif.checkPermission().then(perm => {
-      setNotifPermission(perm);
-      if (perm !== 'granted') {
-        const dismissed = localStorage.getItem('rf_notif_dismissed');
-        if (!dismissed) setTimeout(() => setShowNotifBanner(true), 2500);
-      }
-    });
+    // Delay to let Capacitor plugins fully initialise after login
+    const timer = setTimeout(() => {
+      CapNotif.checkPermission()
+        .then(perm => {
+          const p = perm || 'default';
+          setNotifPermission(p);
+          if (p !== 'granted') {
+            const dismissed = localStorage.getItem('rf_notif_dismissed');
+            if (!dismissed) setTimeout(() => setShowNotifBanner(true), 2500);
+          }
+        })
+        .catch(() => setNotifPermission('default'));
+    }, 1000);
+    return () => clearTimeout(timer);
   }, [user]);
   useEffect(() => { localStorage.setItem('rf_notif_settings', JSON.stringify(notifSettings)); }, [notifSettings]);
   useEffect(() => {
@@ -1223,7 +1266,7 @@ function App() {
           <NotifBanner onGranted={() => { setNotifPermission('granted'); setShowNotifBanner(false); }} onDismiss={() => { setShowNotifBanner(false); localStorage.setItem('rf_notif_dismissed', '1'); }} />
         </div>
       )}
-      {showNotifPanel && <NotifSettings settings={notifSettings} onChange={s => setNotifSettings(s)} onClose={() => setShowNotifPanel(false)} tasks={tasks} timezone={timezone} />}
+      {showNotifPanel && <ErrorBoundary><NotifSettings settings={notifSettings} onChange={s => { setNotifSettings(s); }} onClose={() => { setShowNotifPanel(false); }} tasks={tasks} timezone={timezone} /></ErrorBoundary>}
 
       <div style={{ display:"flex", borderBottom:"1px solid #181830", background:"#0b0b18", padding:"0 18px", overflowX:"auto" }}>
         {tabs.map(t => (
