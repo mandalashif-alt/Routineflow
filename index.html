@@ -1259,47 +1259,70 @@ function App() {
         .heat-cell{border-radius:4px;transition:transform 0.1s;cursor:default} .heat-cell:hover{transform:scale(1.15)}
       `}</style>
 
+      {/* ── Header ── */}
       <div style={{ borderBottom:"1px solid var(--border)", background:"var(--header-bg)", transition:"background 0.25s" }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"11px 14px 6px" }}>
+
+        {/* Row 1: Logo + icon buttons */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px 6px" }}>
+
+          {/* Logo */}
           <div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:19, fontWeight:800, letterSpacing:"-0.5px", color:"var(--text1)", lineHeight:1 }}>ROUTINEFLOW</div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:18, fontWeight:800, letterSpacing:"-0.5px", color:"var(--text1)", lineHeight:1 }}>ROUTINEFLOW</div>
             <div style={{ fontSize:9, color:"var(--text2)", letterSpacing:"1.5px", textTransform:"uppercase", marginTop:3 }}>
               {new Date().toLocaleDateString("en-GB",{ timeZone:timezone, weekday:"short", day:"numeric", month:"short" })}
             </div>
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <div title={user.email} style={{ width:30, height:30, borderRadius:"50%", background:"linear-gradient(135deg,#f97316,#f43f5e)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0 }}>{initials}</div>
+
+          {/* Right controls — all in a tight row */}
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+
+            {/* Avatar */}
+            <div title={user.email}
+              style={{ width:28, height:28, borderRadius:"50%", background:"linear-gradient(135deg,#f97316,#f43f5e)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0 }}>
+              {initials}
+            </div>
+
             {/* Theme toggle */}
-            <button onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              style={{ flexShrink:0, background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:7, padding:"4px 8px", cursor:"pointer", fontSize:15, transition:"all 0.2s" }}>
-              {theme === 'dark' ? '☀️' : '🌙'}
+            <button onClick={toggleTheme} title={theme==="dark" ? "Light mode" : "Dark mode"}
+              style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:7, padding:"5px 7px", cursor:"pointer", fontSize:13, flexShrink:0, lineHeight:1 }}>
+              {theme==="dark" ? "☀️" : "🌙"}
             </button>
-            <button onClick={() => setShowNotifPanel(true)}
-              style={{ flexShrink:0, background: notifPermission==='granted' && notifSettings.enabled ? "#10b98114":"var(--bg3)", border:`1px solid ${notifPermission==='granted' && notifSettings.enabled ? "#10b98155":"var(--border2)"}`, borderRadius:7, padding:"4px 8px", cursor:"pointer", fontSize:15, transition:"all 0.2s" }}>
-              {notifPermission==='granted' && notifSettings.enabled ? "🔔" : "🔕"}
+
+            {/* Bell */}
+            <button onClick={() => setShowNotifPanel(true)} title="Notifications"
+              style={{ background: notifPermission==="granted" && notifSettings.enabled ? "#10b98118":"var(--bg3)", border:`1px solid ${notifPermission==="granted" && notifSettings.enabled ? "#10b98155":"var(--border2)"}`, borderRadius:7, padding:"5px 7px", cursor:"pointer", fontSize:13, flexShrink:0, lineHeight:1 }}>
+              {notifPermission==="granted" && notifSettings.enabled ? "🔔" : "🔕"}
             </button>
-            <button title={syncReady ? "Tap to reload" : "Loading…"}
+
+            {/* Sync */}
+            <button title={syncReady ? "Sync" : "Loading…"}
               onClick={async () => {
                 if (!user) return; setSyncReady(false); store.setUid(user.uid);
                 try { const [t,l,g,tz] = await Promise.all([store.get("rf_tasks"),store.get("rf_logs"),store.get("rf_goals"),store.get("rf_tz")]); if(t)setTasks(t);if(l)setLogs(l);if(g)setGoals(g);if(tz)setTimezone(tz); } catch(e){}
                 setTimeout(() => setSyncReady(true), 500);
               }}
-              style={{ display:"flex", alignItems:"center", gap:5, background:syncReady?"#10b98114":"#f9731614", border:`1px solid ${syncReady?"#10b98155":"#f9731655"}`, borderRadius:7, padding:"5px 10px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
+              style={{ background:syncReady?"#10b98118":"var(--bg3)", border:`1px solid ${syncReady?"#10b98144":"var(--border2)"}`, borderRadius:7, padding:"5px 7px", cursor:"pointer", lineHeight:1, flexShrink:0 }}>
               <span style={{ fontSize:12 }}>{syncReady ? "☁" : "↻"}</span>
-              <span style={{ fontSize:9, fontWeight:600, color:syncReady?"#10b981":"#f97316", letterSpacing:".5px" }}>{syncReady ? "SYNC" : "…"}</span>
             </button>
-            <button onClick={handleLogout}
-              style={{ display:"flex", alignItems:"center", background:"none", border:"1px solid #2a2a45", borderRadius:7, padding:"5px 10px", color:"var(--text3)", fontSize:9, fontWeight:600, fontFamily:"inherit", cursor:"pointer", letterSpacing:".5px", flexShrink:0 }}
+
+            {/* Sign out */}
+            <button onClick={handleLogout} title="Sign out"
+              style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:7, padding:"5px 8px", color:"var(--text3)", fontSize:9, fontWeight:600, fontFamily:"inherit", cursor:"pointer", letterSpacing:".5px", flexShrink:0, lineHeight:1 }}
               onMouseEnter={e=>{e.currentTarget.style.color="#f43f5e";e.currentTarget.style.borderColor="#f43f5e55";}}
-              onMouseLeave={e=>{e.currentTarget.style.color="#6e6e8a";e.currentTarget.style.borderColor="#2a2a45";}}>
+              onMouseLeave={e=>{e.currentTarget.style.color="var(--text3)";e.currentTarget.style.borderColor="var(--border2)";}}>
               OUT
             </button>
+
           </div>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"0 14px 11px" }}>
+
+        {/* Row 2: Clock + Streak + Today% */}
+        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"0 14px 10px" }}>
+
+          {/* Clock + TZ */}
           <div style={{ position:"relative", flex:1, minWidth:0 }}>
             <button onClick={() => setTzOpen(o => !o)}
-              style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", background:"var(--bg3)", border:"1px solid #1e1e38", borderRadius:8, padding:"7px 11px", outline:"none", color:"inherit", fontFamily:"inherit", width:"100%" }}>
+              style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:8, padding:"7px 10px", outline:"none", color:"inherit", fontFamily:"inherit", width:"100%", transition:"background 0.2s" }}>
               <Icon name="clock" size={13} />
               <span style={{ fontSize:13, fontWeight:500, color:"var(--text1)", letterSpacing:"1.5px", fontVariantNumeric:"tabular-nums", flexShrink:0 }}>{clock}</span>
               <span style={{ fontSize:10, color:"var(--text2)", flex:1, textAlign:"left", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{tzLabel}</span>
@@ -1307,7 +1330,7 @@ function App() {
             </button>
             {tzOpen && (
               <div className="tz-drop">
-                <div style={{ fontSize:9, color:"var(--text2)", letterSpacing:"2px", padding:"4px 12px 8px", textTransform:"uppercase" }}>Timezone</div>
+                <div style={{ fontSize:9, color:"var(--text3)", letterSpacing:"2px", padding:"4px 12px 8px", textTransform:"uppercase" }}>Timezone</div>
                 {TIMEZONES.map(t => (
                   <div key={t.tz} className={`tz-item${timezone===t.tz?" sel":""}`} onClick={() => { setTimezone(t.tz); setTzOpen(false); }}>
                     <span>{t.label}</span>
@@ -1317,16 +1340,25 @@ function App() {
               </div>
             )}
           </div>
-          <div style={{ width:1, height:22, background:"#252540", flexShrink:0 }} />
+
+          <div style={{ width:1, height:22, background:"var(--border2)", flexShrink:0 }} />
+
+          {/* Streak */}
           <div style={{ textAlign:"center", flexShrink:0 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:3, color:"#f97316", fontWeight:600, fontSize:13, lineHeight:1 }}><Icon name="flame" size={12} />{streak}</div>
+            <div style={{ display:"flex", alignItems:"center", gap:3, color:"#f97316", fontWeight:600, fontSize:13, lineHeight:1 }}>
+              <Icon name="flame" size={12} />{streak}
+            </div>
             <div style={{ fontSize:8, color:"var(--text3)", letterSpacing:"1px", marginTop:2 }}>STREAK</div>
           </div>
-          <div style={{ width:1, height:22, background:"#252540", flexShrink:0 }} />
+
+          <div style={{ width:1, height:22, background:"var(--border2)", flexShrink:0 }} />
+
+          {/* Today % */}
           <div style={{ textAlign:"center", flexShrink:0 }}>
             <div style={{ color:"var(--text1)", fontWeight:600, fontSize:13, lineHeight:1 }}>{todayPct}%</div>
             <div style={{ fontSize:8, color:"var(--text3)", letterSpacing:"1px", marginTop:2 }}>TODAY</div>
           </div>
+
         </div>
       </div>
 
@@ -1339,13 +1371,17 @@ function App() {
       )}
       {showNotifPanel && <ErrorBoundary><NotifSettings settings={notifSettings} onChange={s => { setNotifSettings(s); }} onClose={() => { setShowNotifPanel(false); }} tasks={tasks} timezone={timezone} /></ErrorBoundary>}
 
-      <div style={{ display:"flex", borderBottom:"1px solid var(--border)", background:"var(--header-bg)", padding:"0 18px", overflowX:"auto", transition:"background 0.25s" }}>
-        {tabs.map(t => (
-          <button key={t.id} className="tab-btn" onClick={() => setTab(t.id)}
-            style={{ padding:"11px 13px", background:"none", border:"none", cursor:"pointer", fontSize:11, letterSpacing:"1px", textTransform:"uppercase", fontFamily:"inherit", display:"flex", alignItems:"center", gap:6, borderBottom:tab===t.id?"2px solid #f97316":"2px solid transparent", color:tab===t.id?"var(--text1)":"var(--text3)", marginBottom:-1, whiteSpace:"nowrap", transition:"color 0.2s" }}>
-            <Icon name={t.icon} size={12} /> {t.label}
-          </button>
-        ))}
+      <div style={{ borderBottom:"1px solid var(--border)", background:"var(--header-bg)", transition:"background 0.25s", overflowX:"auto", WebkitOverflowScrolling:"touch" }}
+        className="tab-scroll-bar">
+        <style>{`.tab-scroll-bar::-webkit-scrollbar{display:none}`}</style>
+        <div style={{ display:"flex", padding:"0 14px", minWidth:"max-content" }}>
+          {tabs.map(t => (
+            <button key={t.id} className="tab-btn" onClick={() => setTab(t.id)}
+              style={{ padding:"10px 12px", background:"none", border:"none", cursor:"pointer", fontSize:10, letterSpacing:"1px", textTransform:"uppercase", fontFamily:"inherit", display:"flex", alignItems:"center", gap:5, borderBottom:tab===t.id?"2px solid #f97316":"2px solid transparent", color:tab===t.id?"var(--accent)":"var(--text3)", marginBottom:-1, whiteSpace:"nowrap", transition:"color 0.2s", fontWeight:tab===t.id?600:400 }}>
+              <Icon name={t.icon} size={11} /> {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div style={{ maxWidth:720, margin:"0 auto", padding:"18px 15px" }} className="fade-in" key={tab}>
