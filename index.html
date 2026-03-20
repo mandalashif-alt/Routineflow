@@ -35,11 +35,55 @@
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: #080810; overflow-x: hidden; }
+    html, body { height: 100%; overflow-x: hidden; }
     body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
     #root { min-height: 100vh; }
     * { -webkit-tap-highlight-color: transparent; }
     input, button, select, textarea { font-family: 'DM Mono', monospace !important; }
+
+    /* ── Dark theme (default) ── */
+    :root {
+      --bg:        #080810;
+      --bg2:       #0e0e1d;
+      --bg3:       #13132a;
+      --bg4:       #0b0b18;
+      --border:    #181830;
+      --border2:   #252540;
+      --text1:     #e8e6f0;
+      --text2:     #a0a0bc;
+      --text3:     #6e6e8a;
+      --text4:     #525270;
+      --accent:    #f97316;
+      --accent2:   #f43f5e;
+      --green:     #10b981;
+      --blue:      #3b82f6;
+      --card-bg:   #0e0e1d;
+      --header-bg: #0b0b18;
+      --input-bg:  #13132a;
+      --input-border: #525270;
+    }
+    /* ── Light theme ── */
+    [data-theme="light"] {
+      --bg:        #f4f4f8;
+      --bg2:       #ffffff;
+      --bg3:       #ededf5;
+      --bg4:       #fafafc;
+      --border:    #dddde8;
+      --border2:   #c8c8d8;
+      --text1:     #1a1a2e;
+      --text2:     #4a4a6a;
+      --text3:     #7a7a9a;
+      --text4:     #aaaabc;
+      --accent:    #f97316;
+      --accent2:   #f43f5e;
+      --green:     #059669;
+      --blue:      #2563eb;
+      --card-bg:   #ffffff;
+      --header-bg: #ffffff;
+      --input-bg:  #f0f0f8;
+      --input-border: #b0b0c8;
+    }
+    html, body { background: var(--bg); }
   </style>
 </head>
 <body>
@@ -265,6 +309,10 @@ const Icon = ({ name, size=16 }) => {
     milestone:<svg {...p}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
     link:     <svg {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
     flag:     <svg {...p}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>,
+    sun:      <svg {...p}><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
+    moon:     <svg {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>,
+    star:     <svg {...p}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+    send:     <svg {...p}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
   };
   return icons[name] || null;
 };
@@ -588,16 +636,16 @@ function NotifBanner({ onGranted, onDismiss }) {
   return (
     <div style={{ margin:"0 0 14px", background:"#0d1a0d", border:"1px solid #10b98144", borderRadius:10, padding:"13px 16px" }}>
       <div style={{ fontSize:13, color:"#10b981", fontWeight:600, marginBottom:6 }}>🔔 Enable task notifications</div>
-      <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.6, marginBottom:10 }}>
+      <div style={{ fontSize:12, color:"var(--text2)", lineHeight:1.6, marginBottom:10 }}>
         Get alerted before tasks start, when they begin, and when they end — even when the app is in the background.
       </div>
       <div style={{ display:"flex", gap:8 }}>
         <button onClick={handleEnable} disabled={loading}
-          style={{ background:"#10b981", border:"none", borderRadius:7, padding:"7px 16px", color:"#fff", fontSize:12, fontFamily:"inherit", cursor:"pointer", fontWeight:600 }}>
+          style={{ background:"#10b981", border:"none", borderRadius:7, padding:"7px 16px", color:"var(--text1)", fontSize:12, fontFamily:"inherit", cursor:"pointer", fontWeight:600 }}>
           {loading ? "…" : "Enable Notifications"}
         </button>
         <button onClick={onDismiss}
-          style={{ background:"none", border:"1px solid #252540", borderRadius:7, padding:"7px 12px", color:"#6e6e8a", fontSize:12, fontFamily:"inherit", cursor:"pointer" }}>
+          style={{ background:"none", border:"1px solid #252540", borderRadius:7, padding:"7px 12px", color:"var(--text3)", fontSize:12, fontFamily:"inherit", cursor:"pointer" }}>
           Not now
         </button>
       </div>
@@ -652,10 +700,10 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
   };
 
   const Toggle = ({ label, sublabel, value, onToggle, disabled }) => (
-    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 0", borderBottom:"1px solid #181830", opacity:disabled?0.4:1 }}>
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 0", borderBottom:"1px solid var(--border)", opacity:disabled?0.4:1 }}>
       <div>
-        <div style={{ fontSize:13, color:"#e8e6f0" }}>{label}</div>
-        {sublabel && <div style={{ fontSize:11, color:"#6e6e8a", marginTop:2 }}>{sublabel}</div>}
+        <div style={{ fontSize:13, color:"var(--text1)" }}>{label}</div>
+        {sublabel && <div style={{ fontSize:11, color:"var(--text3)", marginTop:2 }}>{sublabel}</div>}
       </div>
       <div onClick={disabled ? null : onToggle}
         style={{ width:44, height:26, borderRadius:13, background:value?"#10b981":"#252540", position:"relative", cursor:disabled?"not-allowed":"pointer", transition:"background 0.2s", flexShrink:0 }}>
@@ -677,12 +725,12 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.75)", zIndex:1000, display:"flex", alignItems:"flex-end" }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ width:"100%", background:"#0e0e1d", borderRadius:"18px 18px 0 0", padding:"20px 18px 40px", maxHeight:"92vh", overflowY:"auto" }}>
+      <div style={{ width:"100%", background:"var(--card-bg)", borderRadius:"18px 18px 0 0", padding:"20px 18px 40px", maxHeight:"92vh", overflowY:"auto" }}>
 
         {/* Header */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:700, color:"#fff" }}>🔔 Notifications</div>
-          <button onClick={onClose} style={{ background:"none", border:"none", color:"#6e6e8a", fontSize:20, cursor:"pointer", padding:4, lineHeight:1 }}>✕</button>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:700, color:"var(--text1)" }}>🔔 Notifications</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"var(--text3)", fontSize:20, cursor:"pointer", padding:4, lineHeight:1 }}>✕</button>
         </div>
 
         {/* Permission status card */}
@@ -693,10 +741,10 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
             {permInfo === 'denied' || permInfo === 'needs-settings' ? (
               // Already denied or plugin unavailable — guide to Settings
               <div>
-                <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.7, marginBottom:12 }}>
+                <div style={{ fontSize:12, color:"var(--text2)", lineHeight:1.7, marginBottom:12 }}>
                   To enable notifications, open your iPhone Settings:
                 </div>
-                <div style={{ background:"#0f0f1e", borderRadius:8, padding:"12px 14px", marginBottom:12 }}>
+                <div style={{ background:"var(--bg3)", borderRadius:8, padding:"12px 14px", marginBottom:12 }}>
                   {[
                     "1. Open iPhone  Settings  app",
                     "2. Scroll down → tap  RoutineFlow",
@@ -704,27 +752,27 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
                     "4. Turn on  Allow Notifications",
                     "5. Come back and reopen this panel",
                   ].map((step, i) => (
-                    <div key={i} style={{ fontSize:12, color:"#c0bdd8", lineHeight:1.8 }}>{step}</div>
+                    <div key={i} style={{ fontSize:12, color:"var(--text1)", lineHeight:1.8 }}>{step}</div>
                   ))}
                 </div>
                 <button onClick={handleRequestPerm}
-                  style={{ background:"#525270", border:"none", borderRadius:8, padding:"10px 20px", color:"#fff", fontSize:12, fontFamily:"inherit", cursor:"pointer", width:"100%" }}>
+                  style={{ background:"#525270", border:"none", borderRadius:8, padding:"10px 20px", color:"var(--text1)", fontSize:12, fontFamily:"inherit", cursor:"pointer", width:"100%" }}>
                   Try Again
                 </button>
               </div>
             ) : (
               // First time — show Allow button
               <div>
-                <div style={{ fontSize:12, color:"#a0a0bc", lineHeight:1.6, marginBottom:12 }}>
+                <div style={{ fontSize:12, color:"var(--text2)", lineHeight:1.6, marginBottom:12 }}>
                   iOS needs permission to show alerts when tasks start. Tap below to allow.
                 </div>
                 <button onClick={handleRequestPerm}
-                  style={{ background:"#f97316", border:"none", borderRadius:8, padding:"10px 20px", color:"#fff", fontSize:13, fontFamily:"inherit", cursor:"pointer", fontWeight:600, width:"100%" }}>
+                  style={{ background:"#f97316", border:"none", borderRadius:8, padding:"10px 20px", color:"var(--text1)", fontSize:13, fontFamily:"inherit", cursor:"pointer", fontWeight:600, width:"100%" }}>
                   Allow Notifications
                 </button>
-                <div style={{ marginTop:10, fontSize:11, color:"#525270", lineHeight:1.5 }}>
+                <div style={{ marginTop:10, fontSize:11, color:"var(--text4)", lineHeight:1.5 }}>
                   If the dialog doesn't appear, go to:<br/>
-                  <b style={{color:"#a0a0bc"}}>iPhone Settings → RoutineFlow → Notifications → Allow</b>
+                  <b style={{color:"var(--text2)"}}>iPhone Settings → RoutineFlow → Notifications → Allow</b>
                 </div>
               </div>
             )}
@@ -735,8 +783,8 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
             <div>
               <div style={{ fontSize:12, color:"#10b981", fontWeight:600 }}>Notifications active</div>
               {upcoming && settings.enabled
-                ? <div style={{ fontSize:11, color:"#6e6e8a", marginTop:2 }}>Next: {upcoming.name} in {fmtCountdown(upcoming.ms)}</div>
-                : <div style={{ fontSize:11, color:"#6e6e8a", marginTop:2 }}>Alerts will fire natively on your iPhone</div>
+                ? <div style={{ fontSize:11, color:"var(--text3)", marginTop:2 }}>Next: {upcoming.name} in {fmtCountdown(upcoming.ms)}</div>
+                : <div style={{ fontSize:11, color:"var(--text3)", marginTop:2 }}>Alerts will fire natively on your iPhone</div>
               }
             </div>
           </div>
@@ -765,19 +813,19 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
           disabled={!settings.enabled || permInfo !== 'granted'} />
 
         {/* Sound picker */}
-        <div style={{ marginTop:16, paddingBottom:14, borderBottom:"1px solid #181830", opacity:settings.enabled && permInfo==='granted'?1:0.4 }}>
-          <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:12 }}>In-App Sound</div>
+        <div style={{ marginTop:16, paddingBottom:14, borderBottom:"1px solid var(--border)", opacity:settings.enabled && permInfo==='granted'?1:0.4 }}>
+          <div style={{ fontSize:11, color:"var(--text2)", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:12 }}>In-App Sound</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             {sounds.map(s => (
               <div key={s.id}
-                style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:settings.sound===s.id?"#f9731620":"#131328", border:`1px solid ${settings.sound===s.id?"#f97316":"#242444"}`, borderRadius:9, padding:"9px 11px", cursor:"pointer" }}
+                style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:settings.sound===s.id?"#f9731620":"#131328", border:`1px solid ${settings.sound===s.id?"#f97316":"var(--border2)"}`, borderRadius:9, padding:"9px 11px", cursor:"pointer" }}
                 onClick={() => onChange({...settings, sound:s.id})}>
                 <div>
                   <div style={{ fontSize:12, color:settings.sound===s.id?"#f97316":"#e8e6f0", fontWeight:settings.sound===s.id?600:400 }}>{s.label}</div>
-                  <div style={{ fontSize:10, color:"#6e6e8a", marginTop:2 }}>{s.desc}</div>
+                  <div style={{ fontSize:10, color:"var(--text3)", marginTop:2 }}>{s.desc}</div>
                 </div>
                 <button onClick={e => { e.stopPropagation(); handleTest(s.id); }}
-                  style={{ background:testing===s.id?"#10b981":"#1e1e38", border:`1px solid ${testing===s.id?"#10b981":"#2a2a45"}`, borderRadius:6, padding:"5px 9px", cursor:"pointer", color:testing===s.id?"#fff":"#a0a0bc", fontSize:13, flexShrink:0 }}>
+                  style={{ background:testing===s.id?"#10b981":"var(--bg3)", border:`1px solid ${testing===s.id?"#10b981":"#2a2a45"}`, borderRadius:6, padding:"5px 9px", cursor:"pointer", color:testing===s.id?"#fff":"#a0a0bc", fontSize:13, flexShrink:0 }}>
                   {testing===s.id ? "♪" : "▶"}
                 </button>
               </div>
@@ -786,9 +834,9 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
         </div>
 
         {/* Volume */}
-        <div style={{ paddingTop:14, paddingBottom:14, borderBottom:"1px solid #181830", opacity:settings.enabled && permInfo==='granted'?1:0.4 }}>
+        <div style={{ paddingTop:14, paddingBottom:14, borderBottom:"1px solid var(--border)", opacity:settings.enabled && permInfo==='granted'?1:0.4 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-            <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase" }}>In-App Volume</div>
+            <div style={{ fontSize:11, color:"var(--text2)", letterSpacing:"1.5px", textTransform:"uppercase" }}>In-App Volume</div>
             <div style={{ fontSize:14, color:"#f97316", fontWeight:700 }}>{settings.volume ?? 80}%</div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -798,14 +846,14 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
               style={{ flex:1, accentColor:"#f97316", cursor:"pointer" }} />
             <span style={{ fontSize:16 }}>🔊</span>
           </div>
-          <div style={{ fontSize:10, color:"#525270", marginTop:6 }}>
+          <div style={{ fontSize:10, color:"var(--text4)", marginTop:6 }}>
             iOS lock screen alerts use your iPhone's system volume.
           </div>
         </div>
 
         {/* How it works */}
-        <div style={{ marginTop:16, background:"#131328", borderRadius:9, padding:"11px 13px" }}>
-          <div style={{ fontSize:11, color:"#a0a0bc", fontWeight:600, marginBottom:8 }}>How notifications work on iPhone</div>
+        <div style={{ marginTop:16, background:"var(--bg3)", borderRadius:9, padding:"11px 13px" }}>
+          <div style={{ fontSize:11, color:"var(--text2)", fontWeight:600, marginBottom:8 }}>How notifications work on iPhone</div>
           {[
             ["✅", "App open or background", "Native iOS alert fires with sound"],
             ["✅", "Lock screen",             "Full notification with banner + sound"],
@@ -814,12 +862,12 @@ function NotifSettings({ settings, onChange, onClose, tasks, timezone }) {
           ].map(([icon, label, desc]) => (
             <div key={label} style={{ display:"flex", gap:8, alignItems:"flex-start", marginBottom:7 }}>
               <span style={{ fontSize:12, flexShrink:0 }}>{icon}</span>
-              <div><span style={{ fontSize:11, color:"#e8e6f0", fontWeight:600 }}>{label}: </span><span style={{ fontSize:11, color:"#6e6e8a" }}>{desc}</span></div>
+              <div><span style={{ fontSize:11, color:"var(--text1)", fontWeight:600 }}>{label}: </span><span style={{ fontSize:11, color:"var(--text3)" }}>{desc}</span></div>
             </div>
           ))}
         </div>
 
-        <button onClick={onClose} style={{ width:"100%", marginTop:16, background:"#f97316", border:"none", borderRadius:10, padding:"13px", color:"#fff", fontSize:14, fontFamily:"inherit", cursor:"pointer", fontWeight:700 }}>
+        <button onClick={onClose} style={{ width:"100%", marginTop:16, background:"#f97316", border:"none", borderRadius:10, padding:"13px", color:"var(--text1)", fontSize:14, fontFamily:"inherit", cursor:"pointer", fontWeight:700 }}>
           Done
         </button>
       </div>
@@ -896,10 +944,10 @@ function AuthScreen({ onAuth }) {
     setLoading(false);
   };
 
-  const inputStyle = { width:"100%", background:"#0f0f1e", border:"1px solid #242444", borderRadius:9, padding:"13px 15px", color:"#fff", fontSize:14, fontFamily:"'DM Mono',monospace", outline:"none", boxSizing:"border-box" };
+  const inputStyle = { width:"100%", background:"var(--input-bg)", border:"1px solid var(--input-border)", borderRadius:9, padding:"13px 15px", color:"var(--text1)", fontSize:14, fontFamily:"'DM Mono',monospace", outline:"none", boxSizing:"border-box", transition:"background 0.2s" };
 
   return (
-    <div style={{ minHeight:"100vh", background:"#080810", display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"'DM Mono',monospace" }}>
+    <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"'DM Mono',monospace" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@300;400;500&display=swap');
         .auth-input:focus { border-color:#f97316!important; }
@@ -909,11 +957,11 @@ function AuthScreen({ onAuth }) {
       `}</style>
       <div className="auth-card" style={{ width:"100%", maxWidth:420 }}>
         <div style={{ textAlign:"center", marginBottom:36 }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:26, fontWeight:800, letterSpacing:"-0.5px", color:"#fff", marginBottom:6 }}>ROUTINEFLOW</div>
-          <div style={{ fontSize:11, color:"#6e6e8a", letterSpacing:"2px", textTransform:"uppercase" }}>Build your best day, every day</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:26, fontWeight:800, letterSpacing:"-0.5px", color:"var(--text1)", marginBottom:6 }}>ROUTINEFLOW</div>
+          <div style={{ fontSize:11, color:"var(--text3)", letterSpacing:"2px", textTransform:"uppercase" }}>Build your best day, every day</div>
         </div>
-        <div style={{ background:"#0e0e1d", border:"1px solid #1e1e38", borderRadius:16, padding:"32px 28px" }}>
-          <div style={{ display:"flex", background:"#0a0a18", borderRadius:10, padding:4, marginBottom:24, border:"1px solid #1a1a30" }}>
+        <div style={{ background:"var(--card-bg)", border:"1px solid #1e1e38", borderRadius:16, padding:"32px 28px" }}>
+          <div style={{ display:"flex", background:"#0a0a18", borderRadius:10, padding:4, marginBottom:24, border:"1px solid var(--border)" }}>
             {["login","signup"].map(m => (
               <button key={m} onClick={() => { setMode(m); setError(""); }}
                 style={{ flex:1, padding:"9px", border:"none", borderRadius:7, cursor:"pointer", fontFamily:"inherit", fontSize:12, letterSpacing:"1px", textTransform:"uppercase", fontWeight:500, background:mode===m?"#f97316":"transparent", color:mode===m?"#fff":"#6e6e8a", transition:"all 0.2s" }}>
@@ -925,7 +973,7 @@ function AuthScreen({ onAuth }) {
           {isCapacitor ? (
             <div style={{ background:"#0d1a0d", border:"1px solid #10b98133", borderRadius:9, padding:"12px 14px", marginBottom:18 }}>
               <div style={{ fontSize:13, color:"#10b981", fontWeight:600, marginBottom:4 }}>📱 Sign in with email & password</div>
-              <div style={{ fontSize:11, color:"#6e6e8a", lineHeight:1.6 }}>
+              <div style={{ fontSize:11, color:"var(--text3)", lineHeight:1.6 }}>
                 Google sign-in is available on the web version.<br/>Use your email and password to sign in here.
               </div>
             </div>
@@ -943,7 +991,7 @@ function AuthScreen({ onAuth }) {
               </button>
               <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:18 }}>
                 <div style={{ flex:1, height:1, background:"#1a1a30" }} />
-                <span style={{ fontSize:11, color:"#525270", letterSpacing:"1px" }}>OR</span>
+                <span style={{ fontSize:11, color:"var(--text4)", letterSpacing:"1px" }}>OR</span>
                 <div style={{ flex:1, height:1, background:"#1a1a30" }} />
               </div>
             </>
@@ -951,41 +999,41 @@ function AuthScreen({ onAuth }) {
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             {mode === "signup" && (
               <div>
-                <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Full Name</div>
+                <div style={{ fontSize:10, color:"var(--text2)", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Full Name</div>
                 <input className="auth-input" style={inputStyle} type="text" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key==="Enter" && handleSubmit()} />
               </div>
             )}
             <div>
-              <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Email</div>
+              <div style={{ fontSize:10, color:"var(--text2)", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Email</div>
               <input className="auth-input" style={inputStyle} type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key==="Enter" && handleSubmit()} />
             </div>
             <div>
-              <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Password</div>
+              <div style={{ fontSize:10, color:"var(--text2)", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Password</div>
               <div style={{ position:"relative" }}>
                 <input className="auth-input" style={inputStyle} type={showPw?"text":"password"} placeholder="Min. 6 characters" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => e.key==="Enter" && handleSubmit()} />
-                <button onClick={() => setShowPw(o=>!o)} style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#6e6e8a", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{showPw ? "HIDE" : "SHOW"}</button>
+                <button onClick={() => setShowPw(o=>!o)} style={{ position:"absolute", right:13, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"var(--text3)", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{showPw ? "HIDE" : "SHOW"}</button>
               </div>
             </div>
             {mode === "signup" && (
               <div>
-                <div style={{ fontSize:10, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Confirm Password</div>
+                <div style={{ fontSize:10, color:"var(--text2)", letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:6 }}>Confirm Password</div>
                 <input className="auth-input" style={inputStyle} type={showPw?"text":"password"} placeholder="Repeat password" value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => e.key==="Enter" && handleSubmit()} />
               </div>
             )}
           </div>
           {error && <div style={{ background:"#1a080a", border:"1px solid #f43f5e44", borderRadius:8, padding:"10px 13px", marginTop:14, fontSize:12, color:"#f87090", lineHeight:1.6 }}>{error}</div>}
           <button onClick={handleSubmit} disabled={loading}
-            style={{ width:"100%", marginTop:18, padding:"13px", background:loading?"#7a3a10":"#f97316", border:"none", borderRadius:9, color:"#fff", fontSize:13, fontFamily:"inherit", fontWeight:500, letterSpacing:"1px", cursor:loading?"not-allowed":"pointer", textTransform:"uppercase" }}>
+            style={{ width:"100%", marginTop:18, padding:"13px", background:loading?"#7a3a10":"#f97316", border:"none", borderRadius:9, color:"var(--text1)", fontSize:13, fontFamily:"inherit", fontWeight:500, letterSpacing:"1px", cursor:loading?"not-allowed":"pointer", textTransform:"uppercase" }}>
             {loading ? "Please wait…" : mode === "login" ? "Sign In →" : "Create Account →"}
           </button>
-          <div style={{ textAlign:"center", marginTop:18, fontSize:12, color:"#6e6e8a" }}>
+          <div style={{ textAlign:"center", marginTop:18, fontSize:12, color:"var(--text3)" }}>
             {mode === "login"
               ? <>Don't have an account? <span onClick={() => { setMode("signup"); setError(""); }} style={{ color:"#f97316", cursor:"pointer" }}>Sign up free</span></>
               : <>Already have an account? <span onClick={() => { setMode("login"); setError(""); }} style={{ color:"#f97316", cursor:"pointer" }}>Sign in</span></>
             }
           </div>
         </div>
-        <div style={{ textAlign:"center", marginTop:20, fontSize:10, color:"#525270", lineHeight:1.7 }}>
+        <div style={{ textAlign:"center", marginTop:20, fontSize:10, color:"var(--text4)", lineHeight:1.7 }}>
           {window._firebaseReady ? "Secured by Firebase · Data synced across all your devices" : "⚠️ Preview mode — Firebase requires hosting to work fully."}
         </div>
       </div>
@@ -1001,14 +1049,14 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ position:"fixed", inset:0, background:"#0e0e1d", display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'DM Mono',monospace", zIndex:9999 }}>
+        <div style={{ position:"fixed", inset:0, background:"var(--card-bg)", display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'DM Mono',monospace", zIndex:9999 }}>
           <div style={{ background:"#120a0a", border:"1px solid #f43f5e44", borderRadius:12, padding:24, maxWidth:340, width:"100%" }}>
             <div style={{ fontSize:14, color:"#f43f5e", fontWeight:600, marginBottom:10 }}>⚠️ Something went wrong</div>
-            <div style={{ fontSize:11, color:"#a0a0bc", lineHeight:1.6, marginBottom:16, wordBreak:"break-word" }}>
+            <div style={{ fontSize:11, color:"var(--text2)", lineHeight:1.6, marginBottom:16, wordBreak:"break-word" }}>
               {this.state.error?.message || "Unknown error"}
             </div>
             <button onClick={() => this.setState({ hasError: false, error: null })}
-              style={{ width:"100%", background:"#f97316", border:"none", borderRadius:8, padding:"11px", color:"#fff", fontSize:13, fontFamily:"inherit", cursor:"pointer" }}>
+              style={{ width:"100%", background:"#f97316", border:"none", borderRadius:8, padding:"11px", color:"var(--text1)", fontSize:13, fontFamily:"inherit", cursor:"pointer" }}>
               Try Again
             </button>
           </div>
@@ -1021,6 +1069,17 @@ class ErrorBoundary extends React.Component {
 
 // ─── App Root ─────────────────────────────────────────────────────────────────
 function App() {
+  // ── Theme ──────────────────────────────────────────────────────────────────
+  const [theme, setTheme] = useState(() => localStorage.getItem('rf_theme') || 'dark');
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('rf_theme', theme);
+    // Update status bar meta
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = theme === 'light' ? '#ffffff' : '#080810';
+  }, [theme]);
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+
   const [tab,          setTab]          = useState("today");
   const [tasks,        setTasks]        = useState(DEFAULT_TASKS);
   const [logs,         setLogs]         = useState({});
@@ -1143,17 +1202,19 @@ function App() {
   const tzLabel = TIMEZONES.find(t => t.tz === timezone)?.label || timezone;
   const tabs = [
     { id:"today",   label:"Schedule", icon:"list"     },
-    { id:"history", label:"Calendar", icon:"calendar" },
+    { id:"week",    label:"Week",     icon:"calendar" },
+    { id:"history", label:"History",  icon:"clock"    },
     { id:"stats",   label:"Stats",    icon:"chart"    },
     { id:"goals",   label:"Goals",    icon:"target"   },
+    { id:"summary", label:"Summary",  icon:"flame"    },
   ];
   const handleLogout = () => window._auth.signOut();
 
   if (!authChecked) return (
-    <div style={{ minHeight:"100vh", background:"#080810", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Mono',monospace" }}>
+    <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Mono',monospace" }}>
       <div style={{ textAlign:"center" }}>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontSize:22, fontWeight:800, color:"#fff", marginBottom:8 }}>ROUTINEFLOW</div>
-        <div style={{ fontSize:11, color:"#525270", letterSpacing:"2px" }}>LOADING…</div>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontSize:22, fontWeight:800, color:"var(--text1)", marginBottom:8 }}>ROUTINEFLOW</div>
+        <div style={{ fontSize:11, color:"var(--text4)", letterSpacing:"2px" }}>LOADING…</div>
       </div>
     </div>
   );
@@ -1163,24 +1224,29 @@ function App() {
   const initials = (user.name || user.email).split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
 
   return (
-    <div style={{ fontFamily:"'DM Mono','Courier New',monospace", background:"#080810", minHeight:"100vh", color:"#e8e6f0" }}>
+    <div style={{ fontFamily:"'DM Mono','Courier New',monospace", background:"var(--bg)", minHeight:"100vh", color:"var(--text1)", transition:"background 0.25s, color 0.25s" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap');
         *{box-sizing:border-box;margin:0;padding:0}
-        ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:#080810} ::-webkit-scrollbar-thumb{background:#232340;border-radius:2px}
-        .task-row{transition:background 0.18s} .task-row:hover{background:#0e0e20!important}
-        .tab-btn{transition:color 0.18s,border-color 0.18s} .tab-btn:hover{color:#fff!important}
+        ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:var(--bg)} ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+        .task-row{transition:background 0.18s} .task-row:hover{background:var(--bg3)!important}
+        .tab-btn{transition:color 0.18s,border-color 0.18s} .tab-btn:hover{color:var(--text1)!important}
         .btn-glow:hover{box-shadow:0 0 18px rgba(249,115,22,0.35)}
         input,select,textarea{font-family:'DM Mono',monospace!important}
         .progress-bar{transition:width 1s cubic-bezier(0.4,0,0.2,1)}
         .fade-in{animation:fadeIn 0.28s ease}
         @keyframes fadeIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
-        .tz-drop{position:absolute;top:calc(100% + 6px);right:0;background:#0c0c1a;border:1px solid #242444;border-radius:10px;padding:6px;z-index:400;min-width:195px;max-height:270px;overflow-y:auto;box-shadow:0 10px 36px rgba(0,0,0,0.55)}
-        .tz-item{padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:#c0bdd8;transition:background 0.13s,color 0.13s;display:flex;justify-content:space-between;align-items:center}
-        .tz-item:hover{background:#1a1a30;color:#fff} .tz-item.sel{background:#f97316;color:#fff;font-weight:500}
-        .chip{padding:5px 11px;border-radius:20px;border:1px solid #2a2a48;font-size:11px;cursor:pointer;transition:all 0.13s;background:transparent;color:#b0b0c8;font-family:'DM Mono',monospace;letter-spacing:.5px}
+        .rf-card{background:var(--card-bg);border:1px solid var(--border);border-radius:12px}
+        .rf-input{background:var(--input-bg);border:1px solid var(--input-border);color:var(--text1)}
+        .week-day-col{transition:background 0.15s;border-radius:10px;cursor:pointer}
+        .week-day-col:hover{background:var(--bg3)!important}
+        .summary-card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px}
+        .tz-drop{position:absolute;top:calc(100% + 6px);right:0;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:400;min-width:195px;max-height:270px;overflow-y:auto;box-shadow:0 10px 36px rgba(0,0,0,0.35)}
+        .tz-item{padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text2);transition:background 0.13s,color 0.13s;display:flex;justify-content:space-between;align-items:center}
+        .tz-item:hover{background:var(--bg3);color:var(--text1)} .tz-item.sel{background:#f97316;color:#fff;font-weight:500}
+        .chip{padding:5px 11px;border-radius:20px;border:1px solid var(--border2);font-size:11px;cursor:pointer;transition:all 0.13s;background:transparent;color:var(--text2);font-family:'DM Mono',monospace;letter-spacing:.5px}
         .chip.on{background:#f97316;border-color:#f97316;color:#fff} .chip:hover:not(.on){border-color:#f97316;color:#f97316}
-        .dchip{width:32px;height:32px;border-radius:6px;border:1px solid #2a2a48;font-size:11px;cursor:pointer;transition:all 0.13s;background:transparent;color:#b0b0c8;font-family:'DM Mono',monospace;display:flex;align-items:center;justify-content:center}
+        .dchip{width:32px;height:32px;border-radius:6px;border:1px solid var(--border2);font-size:11px;cursor:pointer;transition:all 0.13s;background:transparent;color:var(--text2);font-family:'DM Mono',monospace;display:flex;align-items:center;justify-content:center}
         .dchip.on{background:#f97316;border-color:#f97316;color:#fff} .dchip:hover:not(.on){border-color:#f97316;color:#f97316}
         .now-pill{display:inline-flex;align-items:center;margin-left:8px;font-size:10px;color:#f97316;background:#f9731622;padding:2px 7px;border-radius:3px;letter-spacing:.8px;animation:pulse 2s ease-in-out infinite}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
@@ -1193,18 +1259,23 @@ function App() {
         .heat-cell{border-radius:4px;transition:transform 0.1s;cursor:default} .heat-cell:hover{transform:scale(1.15)}
       `}</style>
 
-      <div style={{ borderBottom:"1px solid #181830", background:"#0b0b18" }}>
+      <div style={{ borderBottom:"1px solid var(--border)", background:"var(--header-bg)", transition:"background 0.25s" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"11px 14px 6px" }}>
           <div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:19, fontWeight:800, letterSpacing:"-0.5px", color:"#fff", lineHeight:1 }}>ROUTINEFLOW</div>
-            <div style={{ fontSize:9, color:"#a0a0bc", letterSpacing:"1.5px", textTransform:"uppercase", marginTop:3 }}>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:19, fontWeight:800, letterSpacing:"-0.5px", color:"var(--text1)", lineHeight:1 }}>ROUTINEFLOW</div>
+            <div style={{ fontSize:9, color:"var(--text2)", letterSpacing:"1.5px", textTransform:"uppercase", marginTop:3 }}>
               {new Date().toLocaleDateString("en-GB",{ timeZone:timezone, weekday:"short", day:"numeric", month:"short" })}
             </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <div title={user.email} style={{ width:30, height:30, borderRadius:"50%", background:"linear-gradient(135deg,#f97316,#f43f5e)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0 }}>{initials}</div>
+            {/* Theme toggle */}
+            <button onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              style={{ flexShrink:0, background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:7, padding:"4px 8px", cursor:"pointer", fontSize:15, transition:"all 0.2s" }}>
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
             <button onClick={() => setShowNotifPanel(true)}
-              style={{ flexShrink:0, background: notifPermission==='granted' && notifSettings.enabled ? "#10b98114":"#1a1a2e", border:`1px solid ${notifPermission==='granted' && notifSettings.enabled ? "#10b98155":"#252545"}`, borderRadius:7, padding:"4px 8px", cursor:"pointer", fontSize:15 }}>
+              style={{ flexShrink:0, background: notifPermission==='granted' && notifSettings.enabled ? "#10b98114":"var(--bg3)", border:`1px solid ${notifPermission==='granted' && notifSettings.enabled ? "#10b98155":"var(--border2)"}`, borderRadius:7, padding:"4px 8px", cursor:"pointer", fontSize:15, transition:"all 0.2s" }}>
               {notifPermission==='granted' && notifSettings.enabled ? "🔔" : "🔕"}
             </button>
             <button title={syncReady ? "Tap to reload" : "Loading…"}
@@ -1218,7 +1289,7 @@ function App() {
               <span style={{ fontSize:9, fontWeight:600, color:syncReady?"#10b981":"#f97316", letterSpacing:".5px" }}>{syncReady ? "SYNC" : "…"}</span>
             </button>
             <button onClick={handleLogout}
-              style={{ display:"flex", alignItems:"center", background:"none", border:"1px solid #2a2a45", borderRadius:7, padding:"5px 10px", color:"#6e6e8a", fontSize:9, fontWeight:600, fontFamily:"inherit", cursor:"pointer", letterSpacing:".5px", flexShrink:0 }}
+              style={{ display:"flex", alignItems:"center", background:"none", border:"1px solid #2a2a45", borderRadius:7, padding:"5px 10px", color:"var(--text3)", fontSize:9, fontWeight:600, fontFamily:"inherit", cursor:"pointer", letterSpacing:".5px", flexShrink:0 }}
               onMouseEnter={e=>{e.currentTarget.style.color="#f43f5e";e.currentTarget.style.borderColor="#f43f5e55";}}
               onMouseLeave={e=>{e.currentTarget.style.color="#6e6e8a";e.currentTarget.style.borderColor="#2a2a45";}}>
               OUT
@@ -1228,15 +1299,15 @@ function App() {
         <div style={{ display:"flex", alignItems:"center", gap:8, padding:"0 14px 11px" }}>
           <div style={{ position:"relative", flex:1, minWidth:0 }}>
             <button onClick={() => setTzOpen(o => !o)}
-              style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", background:"#0f0f1e", border:"1px solid #1e1e38", borderRadius:8, padding:"7px 11px", outline:"none", color:"inherit", fontFamily:"inherit", width:"100%" }}>
+              style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", background:"var(--bg3)", border:"1px solid #1e1e38", borderRadius:8, padding:"7px 11px", outline:"none", color:"inherit", fontFamily:"inherit", width:"100%" }}>
               <Icon name="clock" size={13} />
-              <span style={{ fontSize:13, fontWeight:500, color:"#fff", letterSpacing:"1.5px", fontVariantNumeric:"tabular-nums", flexShrink:0 }}>{clock}</span>
-              <span style={{ fontSize:10, color:"#b0b0c8", flex:1, textAlign:"left", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{tzLabel}</span>
+              <span style={{ fontSize:13, fontWeight:500, color:"var(--text1)", letterSpacing:"1.5px", fontVariantNumeric:"tabular-nums", flexShrink:0 }}>{clock}</span>
+              <span style={{ fontSize:10, color:"var(--text2)", flex:1, textAlign:"left", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{tzLabel}</span>
               <Icon name="chev" size={11} />
             </button>
             {tzOpen && (
               <div className="tz-drop">
-                <div style={{ fontSize:9, color:"#a0a0bc", letterSpacing:"2px", padding:"4px 12px 8px", textTransform:"uppercase" }}>Timezone</div>
+                <div style={{ fontSize:9, color:"var(--text2)", letterSpacing:"2px", padding:"4px 12px 8px", textTransform:"uppercase" }}>Timezone</div>
                 {TIMEZONES.map(t => (
                   <div key={t.tz} className={`tz-item${timezone===t.tz?" sel":""}`} onClick={() => { setTimezone(t.tz); setTzOpen(false); }}>
                     <span>{t.label}</span>
@@ -1249,12 +1320,12 @@ function App() {
           <div style={{ width:1, height:22, background:"#252540", flexShrink:0 }} />
           <div style={{ textAlign:"center", flexShrink:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:3, color:"#f97316", fontWeight:600, fontSize:13, lineHeight:1 }}><Icon name="flame" size={12} />{streak}</div>
-            <div style={{ fontSize:8, color:"#6e6e8a", letterSpacing:"1px", marginTop:2 }}>STREAK</div>
+            <div style={{ fontSize:8, color:"var(--text3)", letterSpacing:"1px", marginTop:2 }}>STREAK</div>
           </div>
           <div style={{ width:1, height:22, background:"#252540", flexShrink:0 }} />
           <div style={{ textAlign:"center", flexShrink:0 }}>
-            <div style={{ color:"#fff", fontWeight:600, fontSize:13, lineHeight:1 }}>{todayPct}%</div>
-            <div style={{ fontSize:8, color:"#6e6e8a", letterSpacing:"1px", marginTop:2 }}>TODAY</div>
+            <div style={{ color:"var(--text1)", fontWeight:600, fontSize:13, lineHeight:1 }}>{todayPct}%</div>
+            <div style={{ fontSize:8, color:"var(--text3)", letterSpacing:"1px", marginTop:2 }}>TODAY</div>
           </div>
         </div>
       </div>
@@ -1268,10 +1339,10 @@ function App() {
       )}
       {showNotifPanel && <ErrorBoundary><NotifSettings settings={notifSettings} onChange={s => { setNotifSettings(s); }} onClose={() => { setShowNotifPanel(false); }} tasks={tasks} timezone={timezone} /></ErrorBoundary>}
 
-      <div style={{ display:"flex", borderBottom:"1px solid #181830", background:"#0b0b18", padding:"0 18px", overflowX:"auto" }}>
+      <div style={{ display:"flex", borderBottom:"1px solid var(--border)", background:"var(--header-bg)", padding:"0 18px", overflowX:"auto", transition:"background 0.25s" }}>
         {tabs.map(t => (
           <button key={t.id} className="tab-btn" onClick={() => setTab(t.id)}
-            style={{ padding:"11px 13px", background:"none", border:"none", cursor:"pointer", fontSize:11, letterSpacing:"1px", textTransform:"uppercase", fontFamily:"inherit", display:"flex", alignItems:"center", gap:6, borderBottom:tab===t.id?"2px solid #f97316":"2px solid transparent", color:tab===t.id?"#fff":"#a0a0bc", marginBottom:-1, whiteSpace:"nowrap" }}>
+            style={{ padding:"11px 13px", background:"none", border:"none", cursor:"pointer", fontSize:11, letterSpacing:"1px", textTransform:"uppercase", fontFamily:"inherit", display:"flex", alignItems:"center", gap:6, borderBottom:tab===t.id?"2px solid #f97316":"2px solid transparent", color:tab===t.id?"var(--text1)":"var(--text3)", marginBottom:-1, whiteSpace:"nowrap", transition:"color 0.2s" }}>
             <Icon name={t.icon} size={12} /> {t.label}
           </button>
         ))}
@@ -1279,6 +1350,8 @@ function App() {
 
       <div style={{ maxWidth:720, margin:"0 auto", padding:"18px 15px" }} className="fade-in" key={tab}>
         {tab==="today"   && <TodayView tasks={viewTasks} allTasks={tasks} viewLog={viewLog} viewKey={viewKey} todayKey={tkey} selectedDate={selectedDate} setSelectedDate={setSelectedDate} toggleTask={toggleTask} completedToday={completedToday} totalToday={totalToday} pct={pct} onAddTask={() => setModal("task")} onEditTask={t => { setEditTask(t); setModal("task"); }} onDeleteTask={id => setTasks(p => p.filter(t => t.id!==id))} timezone={timezone} goals={goals} />}
+        {tab==="week"    && <WeekView tasks={tasks} logs={logs} timezone={timezone} toggleTask={toggleTask} tkey={tkey} setSelectedDate={setSelectedDate} setTab={setTab} />}
+        {tab==="summary" && <SummaryView tasks={tasks} logs={logs} timezone={timezone} goals={goals} />}
         {tab==="history" && <HistoryView tasks={tasks} logs={logs} timezone={timezone} setSelectedDate={setSelectedDate} setTab={setTab} />}
         {tab==="stats"   && <StatsView tasks={tasks} logs={logs} timezone={timezone} goals={goals} />}
         {tab==="goals"   && <GoalsView goals={goals} setGoals={setGoals} onAdd={() => setModal("goal")} />}
@@ -1317,29 +1390,29 @@ function TodayView({ tasks, allTasks, viewLog, viewKey, todayKey, selectedDate, 
 
   return (
     <div>
-      <div style={{ background:"#0e0e1d", border:"1px solid #181830", borderRadius:12, padding:"12px 16px", marginBottom:14, display:"flex", alignItems:"center", gap:10 }}>
-        <button onClick={() => shiftDate(-1)} style={{ background:"#13132a", border:"1px solid #525270", borderRadius:7, padding:"7px 11px", color:"#c0bdd8", cursor:"pointer", fontSize:14, flexShrink:0, lineHeight:1 }}>‹</button>
+      <div style={{ background:"var(--card-bg)", border:"1px solid var(--border)", borderRadius:12, padding:"12px 16px", marginBottom:14, display:"flex", alignItems:"center", gap:10 }}>
+        <button onClick={() => shiftDate(-1)} style={{ background:"var(--bg3)", border:"1px solid #525270", borderRadius:7, padding:"7px 11px", color:"var(--text1)", cursor:"pointer", fontSize:14, flexShrink:0, lineHeight:1 }}>‹</button>
         <div style={{ flex:1, textAlign:"center", position:"relative" }}>
           <div style={{ fontSize:11, letterSpacing:"2px", color: isFuture?"#3b82f6": isPast?"#b0b0c8":"#f97316", textTransform:"uppercase", fontWeight:600, marginBottom:2 }}>{isFuture && "▸ "}{isPast && "◂ "}{dateLabel}</div>
-          <div style={{ fontSize:12, color:"#a0a0bc" }}>{fullDateDisplay}</div>
+          <div style={{ fontSize:12, color:"var(--text2)" }}>{fullDateDisplay}</div>
           <input type="date" value={viewKey} onChange={e => { const v = e.target.value; setSelectedDate(v === todayKey ? null : v); }} style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%" }} />
         </div>
-        <button onClick={() => shiftDate(1)} style={{ background:"#13132a", border:"1px solid #525270", borderRadius:7, padding:"7px 11px", color:"#c0bdd8", cursor:"pointer", fontSize:14, flexShrink:0, lineHeight:1 }}>›</button>
-        {!isToday && <button onClick={() => setSelectedDate(null)} style={{ background:"#f97316", border:"none", borderRadius:7, padding:"7px 12px", color:"#fff", cursor:"pointer", fontSize:10, letterSpacing:"1px", fontFamily:"inherit", flexShrink:0, whiteSpace:"nowrap" }}>↩ TODAY</button>}
+        <button onClick={() => shiftDate(1)} style={{ background:"var(--bg3)", border:"1px solid #525270", borderRadius:7, padding:"7px 11px", color:"var(--text1)", cursor:"pointer", fontSize:14, flexShrink:0, lineHeight:1 }}>›</button>
+        {!isToday && <button onClick={() => setSelectedDate(null)} style={{ background:"#f97316", border:"none", borderRadius:7, padding:"7px 12px", color:"var(--text1)", cursor:"pointer", fontSize:10, letterSpacing:"1px", fontFamily:"inherit", flexShrink:0, whiteSpace:"nowrap" }}>↩ TODAY</button>}
       </div>
 
       {isFuture && <div style={{ background:"#0d1a2e", border:"1px solid #3b82f633", borderRadius:9, padding:"9px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:16 }}>📅</span><div style={{ fontSize:12, color:"#3b82f6" }}>Viewing future schedule — tasks shown based on their repeat rules.</div></div>}
-      {isPast   && <div style={{ background:"#0d0d1c", border:"1px solid #6e6e8a", borderRadius:9, padding:"9px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:16 }}>📜</span><div style={{ fontSize:12, color:"#b0b0c8" }}>Viewing past schedule — you can retroactively mark tasks as done.</div></div>}
+      {isPast   && <div style={{ background:"var(--card-bg)", border:"1px solid #6e6e8a", borderRadius:9, padding:"9px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:16 }}>📜</span><div style={{ fontSize:12, color:"var(--text2)" }}>Viewing past schedule — you can retroactively mark tasks as done.</div></div>}
 
       <div style={{ background:"linear-gradient(135deg,#0d0d1e 0%,#0f0f26 100%)", border:`1px solid ${isFuture?"#3b82f630":isPast?"#6e6e8a":"#181830"}`, borderRadius:12, padding:20, marginBottom:18 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:14 }}>
           <div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:46, fontWeight:800, lineHeight:1, color:pct===100?"#10b981":isFuture?"#3b82f6":"#fff" }}>{pct}<span style={{ fontSize:20, color:"#a0a0bc" }}>%</span></div>
-            <div style={{ fontSize:11, color:"#a0a0bc", letterSpacing:"2px", marginTop:4 }}>{completedToday}/{totalToday} TASKS · {fmtMins(doneMins)} / {fmtMins(totalMins)}</div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:46, fontWeight:800, lineHeight:1, color:pct===100?"#10b981":isFuture?"#3b82f6":"#fff" }}>{pct}<span style={{ fontSize:20, color:"var(--text2)" }}>%</span></div>
+            <div style={{ fontSize:11, color:"var(--text2)", letterSpacing:"2px", marginTop:4 }}>{completedToday}/{totalToday} TASKS · {fmtMins(doneMins)} / {fmtMins(totalMins)}</div>
           </div>
           {pct===100 && <div style={{ background:"#10b98116", border:"1px solid #10b98138", borderRadius:8, padding:"7px 13px", fontSize:11, color:"#10b981", letterSpacing:"1px" }}>✦ COMPLETE</div>}
         </div>
-        <div style={{ background:"#13132a", borderRadius:4, height:6, overflow:"hidden" }}>
+        <div style={{ background:"var(--bg3)", borderRadius:4, height:6, overflow:"hidden" }}>
           <div className="progress-bar" style={{ height:"100%", width:`${pct}%`, background:pct===100?"#10b981":isFuture?"#3b82f6":"linear-gradient(90deg,#f97316,#f43f5e)", borderRadius:4 }} />
         </div>
       </div>
@@ -1347,13 +1420,13 @@ function TodayView({ tasks, allTasks, viewLog, viewKey, todayKey, selectedDate, 
       <DayTimeline tasks={tasks} nowMins={isToday ? nowMins : null} />
 
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:13 }}>
-        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", textTransform:"uppercase" }}>{isToday ? "Today's" : isFuture ? "Planned" : "Past"} Schedule</div>
-        <button onClick={onAddTask} className="btn-glow" style={{ display:"flex", alignItems:"center", gap:6, background:"#f97316", border:"none", borderRadius:6, padding:"6px 14px", color:"#fff", fontSize:11, fontFamily:"inherit", cursor:"pointer", letterSpacing:"1px" }}>
+        <div style={{ fontSize:11, letterSpacing:"2px", color:"var(--text2)", textTransform:"uppercase" }}>{isToday ? "Today's" : isFuture ? "Planned" : "Past"} Schedule</div>
+        <button onClick={onAddTask} className="btn-glow" style={{ display:"flex", alignItems:"center", gap:6, background:"#f97316", border:"none", borderRadius:6, padding:"6px 14px", color:"var(--text1)", fontSize:11, fontFamily:"inherit", cursor:"pointer", letterSpacing:"1px" }}>
           <Icon name="plus" size={12} /> ADD TASK
         </button>
       </div>
 
-      {tasks.length === 0 && <div style={{ textAlign:"center", padding:"50px 20px", color:"#525270", fontSize:13 }}>No tasks scheduled for this day.</div>}
+      {tasks.length === 0 && <div style={{ textAlign:"center", padding:"50px 20px", color:"var(--text4)", fontSize:13 }}>No tasks scheduled for this day.</div>}
 
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
         {tasks.map(task => {
@@ -1368,20 +1441,20 @@ function TodayView({ tasks, allTasks, viewLog, viewKey, todayKey, selectedDate, 
               {isActive && !done && <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:`linear-gradient(90deg,transparent,${task.color},transparent)` }} />}
               {done && <div style={{ position:"absolute", inset:0, background:task.color+"06", pointerEvents:"none" }} />}
               <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <div style={{ width:22, height:22, borderRadius:6, border:`2px solid ${done?task.color:"#6e6e8a"}`, background:done?task.color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:"#fff" }}>{done && <Icon name="check" size={11} />}</div>
+                <div style={{ width:22, height:22, borderRadius:6, border:`2px solid ${done?task.color:"var(--text3)"}`, background:done?task.color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:"var(--text1)" }}>{done && <Icon name="check" size={11} />}</div>
                 <div style={{ width:3, height:26, background:task.color, borderRadius:2, flexShrink:0, opacity:done?0.35:1 }} />
                 <div style={{ flex:1, minWidth:0, fontSize:14, color:done?"#a0a0bc":"#e8e6f0", textDecoration:done?"line-through":"none", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
                   {task.name}{isActive && !done && <span className="now-pill">NOW</span>}
                 </div>
                 <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
-                  <span style={{ background:"#13132a", padding:"2px 7px", borderRadius:4, fontSize:10, color:"#b0b0c8", whiteSpace:"nowrap" }}>{fmtMins(task.duration)}</span>
-                  <button onClick={e => { e.stopPropagation(); onEditTask(task); }} style={{ background:"#13132a", border:"1px solid #232348", borderRadius:6, cursor:"pointer", color:"#a0a0bc", padding:"4px 6px", display:"flex", alignItems:"center" }} onMouseEnter={e=>e.currentTarget.style.color="#f97316"} onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}><Icon name="edit" size={12} /></button>
-                  <button onClick={e => { e.stopPropagation(); onDeleteTask(task.id); }} style={{ background:"#13132a", border:"1px solid #232348", borderRadius:6, cursor:"pointer", color:"#a0a0bc", padding:"4px 6px", display:"flex", alignItems:"center" }} onMouseEnter={e=>e.currentTarget.style.color="#f43f5e"} onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}><Icon name="trash" size={12} /></button>
+                  <span style={{ background:"var(--bg3)", padding:"2px 7px", borderRadius:4, fontSize:10, color:"var(--text2)", whiteSpace:"nowrap" }}>{fmtMins(task.duration)}</span>
+                  <button onClick={e => { e.stopPropagation(); onEditTask(task); }} style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:6, cursor:"pointer", color:"var(--text2)", padding:"4px 6px", display:"flex", alignItems:"center" }} onMouseEnter={e=>e.currentTarget.style.color="#f97316"} onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}><Icon name="edit" size={12} /></button>
+                  <button onClick={e => { e.stopPropagation(); onDeleteTask(task.id); }} style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:6, cursor:"pointer", color:"var(--text2)", padding:"4px 6px", display:"flex", alignItems:"center" }} onMouseEnter={e=>e.currentTarget.style.color="#f43f5e"} onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}><Icon name="trash" size={12} /></button>
                 </div>
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:6, paddingLeft:32, flexWrap:"wrap" }}>
-                {task.startTime && <span style={{ color:"#b0b0c8", display:"flex", alignItems:"center", gap:3, fontSize:11 }}><Icon name="clock" size={9} /> {fmt12(task.startTime)}<span style={{ color:"#6e6e8a" }}>–{fmt12(endTime(task.startTime,task.duration))}</span></span>}
-                <span style={{ fontSize:11, color:"#6e6e8a" }}>{task.category}</span>
+                {task.startTime && <span style={{ color:"var(--text2)", display:"flex", alignItems:"center", gap:3, fontSize:11 }}><Icon name="clock" size={9} /> {fmt12(task.startTime)}<span style={{ color:"var(--text3)" }}>–{fmt12(endTime(task.startTime,task.duration))}</span></span>}
+                <span style={{ fontSize:11, color:"var(--text3)" }}>{task.category}</span>
                 {task.linkedMilestone?.goalId && (() => {
                   const g = goals?.find(x => x.id === task.linkedMilestone.goalId);
                   return g ? <span style={{ display:"flex", alignItems:"center", gap:3, background:"#f9731618", color:"#f97316", padding:"2px 6px", borderRadius:4, fontSize:10 }}><Icon name="flag" size={9} /> {g.name}</span> : null;
@@ -1418,13 +1491,13 @@ function HistoryView({ tasks, logs, timezone, setSelectedDate, setTab }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-        <button onClick={prevMonth} style={{ background:"#13132a", border:"none", color:"#e8e6f0", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontFamily:"inherit", fontSize:13 }}>←</button>
+        <button onClick={prevMonth} style={{ background:"var(--bg3)", border:"none", color:"var(--text1)", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontFamily:"inherit", fontSize:13 }}>←</button>
         <div style={{ fontFamily:"'Syne',sans-serif", fontSize:17, fontWeight:700 }}>{MONTHS[vm]} {vy}</div>
-        <button onClick={nextMonth} style={{ background:"#13132a", border:"none", color:"#e8e6f0", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontFamily:"inherit", fontSize:13 }}>→</button>
+        <button onClick={nextMonth} style={{ background:"var(--bg3)", border:"none", color:"var(--text1)", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontFamily:"inherit", fontSize:13 }}>→</button>
       </div>
-      <div style={{ fontSize:10, color:"#6e6e8a", letterSpacing:"1px", textAlign:"center", marginBottom:10, textTransform:"uppercase" }}>Tap any date to view its schedule →</div>
+      <div style={{ fontSize:10, color:"var(--text3)", letterSpacing:"1px", textAlign:"center", marginBottom:10, textTransform:"uppercase" }}>Tap any date to view its schedule →</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:6 }}>
-        {WEEKDAYS.map(d => <div key={d} style={{ textAlign:"center", fontSize:10, color:"#6e6e8a" }}>{d}</div>)}
+        {WEEKDAYS.map(d => <div key={d} style={{ textAlign:"center", fontSize:10, color:"var(--text3)" }}>{d}</div>)}
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
         {Array(firstDay).fill(null).map((_,i) => <div key={"e"+i} />)}
@@ -1449,11 +1522,11 @@ function HistoryView({ tasks, logs, timezone, setSelectedDate, setTab }) {
       </div>
       <div style={{ display:"flex", gap:14, marginTop:14, flexWrap:"wrap" }}>
         {[["#131328","0%"],["#6d28d944","1–49%"],["#f97316","50–99%"],["#10b981","100%"]].map(([c,l]) => (
-          <div key={l} style={{ display:"flex", alignItems:"center", gap:6, fontSize:11, color:"#a0a0bc" }}><div style={{ width:12, height:12, borderRadius:3, background:c, border:"1px solid #525270" }} /> {l}</div>
+          <div key={l} style={{ display:"flex", alignItems:"center", gap:6, fontSize:11, color:"var(--text2)" }}><div style={{ width:12, height:12, borderRadius:3, background:c, border:"1px solid #525270" }} /> {l}</div>
         ))}
       </div>
       <div style={{ marginTop:26 }}>
-        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", marginBottom:13, textTransform:"uppercase" }}>Last 7 Days</div>
+        <div style={{ fontSize:11, letterSpacing:"2px", color:"var(--text2)", marginBottom:13, textTransform:"uppercase" }}>Last 7 Days</div>
         {Array(7).fill(null).map((_,i) => {
           const d = new Date(); d.setDate(d.getDate()-(6-i));
           const key = d.toLocaleDateString("en-CA",{timeZone:timezone});
@@ -1465,11 +1538,11 @@ function HistoryView({ tasks, logs, timezone, setSelectedDate, setTab }) {
             <div key={key} onClick={() => goToDate(key)}
               style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8, cursor:"pointer", borderRadius:6, padding:"3px 4px" }}
               onMouseEnter={e => e.currentTarget.style.background="#13132a"} onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-              <div style={{ width:34, fontSize:11, color:"#a0a0bc", textAlign:"right" }}>{WEEKDAYS[d.getDay()]}</div>
-              <div style={{ flex:1, background:"#13132a", borderRadius:4, height:8, overflow:"hidden" }}>
+              <div style={{ width:34, fontSize:11, color:"var(--text2)", textAlign:"right" }}>{WEEKDAYS[d.getDay()]}</div>
+              <div style={{ flex:1, background:"var(--bg3)", borderRadius:4, height:8, overflow:"hidden" }}>
                 <div style={{ height:"100%", width:`${p*100}%`, background:p===1?"#10b981":"#f97316", borderRadius:4 }} />
               </div>
-              <div style={{ width:40, fontSize:11, color:"#a0a0bc" }}>{done}/{total}</div>
+              <div style={{ width:40, fontSize:11, color:"var(--text2)" }}>{done}/{total}</div>
               <div style={{ fontSize:10, color:"#f97316", opacity:.6 }}>→</div>
             </div>
           );
@@ -1488,15 +1561,15 @@ function CategoryRow({ cat, color, rate, catTasks }) {
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <div style={{ width:8, height:8, borderRadius:2, background:color, flexShrink:0 }} />
-            <span style={{ color:"#e8e6f0", fontSize:13, fontWeight:500 }}>{cat}</span>
-            <span style={{ fontSize:10, color:"#6e6e8a" }}>{catTasks.length} task{catTasks.length!==1?"s":""}</span>
+            <span style={{ color:"var(--text1)", fontSize:13, fontWeight:500 }}>{cat}</span>
+            <span style={{ fontSize:10, color:"var(--text3)" }}>{catTasks.length} task{catTasks.length!==1?"s":""}</span>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <span style={{ color: rate===100?"#10b981":color, fontWeight:600, fontSize:13 }}>{rate}%</span>
-            <span style={{ color:"#a0a0bc", fontSize:10 }}>{open?"▲":"▼"}</span>
+            <span style={{ color:"var(--text2)", fontSize:10 }}>{open?"▲":"▼"}</span>
           </div>
         </div>
-        <div style={{ background:"#13132a", borderRadius:4, height:8, overflow:"hidden" }}>
+        <div style={{ background:"var(--bg3)", borderRadius:4, height:8, overflow:"hidden" }}>
           <div style={{ height:"100%", width:`${rate}%`, background:rate===100?"#10b981":color, borderRadius:4, transition:"width 1s ease" }} />
         </div>
       </div>
@@ -1508,7 +1581,7 @@ function CategoryRow({ cat, color, rate, catTasks }) {
                 <span style={{ color:"#9090a8" }}>{t.name}</span>
                 <span style={{ color:t.rate===100?"#10b981":color }}>{t.rate}%</span>
               </div>
-              <div style={{ background:"#13132a", borderRadius:2, height:4 }}>
+              <div style={{ background:"var(--bg3)", borderRadius:2, height:4 }}>
                 <div style={{ height:"100%", width:`${t.rate}%`, background:t.rate===100?"#10b981":color, borderRadius:2, opacity:.75 }} />
               </div>
             </div>
@@ -1564,34 +1637,34 @@ function StatsView({ tasks, logs, timezone, goals }) {
     <div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:10, marginBottom:18 }}>
         {cards.map(c => (
-          <div key={c.label} style={{ background:"#0e0e1d", border:`1px solid ${c.color}22`, borderRadius:10, padding:16, position:"relative", overflow:"hidden" }}>
+          <div key={c.label} style={{ background:"var(--card-bg)", border:`1px solid ${c.color}22`, borderRadius:10, padding:16, position:"relative", overflow:"hidden" }}>
             <div style={{ position:"absolute", top:10, right:12, fontSize:18, opacity:.15 }}>{c.icon}</div>
             <div style={{ fontFamily:"'Syne',sans-serif", fontSize:32, fontWeight:800, color:c.color, lineHeight:1 }}>{c.value}</div>
-            <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#b0b0c8", marginTop:5, textTransform:"uppercase" }}>{c.label}</div>
-            <div style={{ fontSize:9, color:"#6e6e8a", marginTop:3 }}>{c.sub}</div>
+            <div style={{ fontSize:10, letterSpacing:"1.5px", color:"var(--text2)", marginTop:5, textTransform:"uppercase" }}>{c.label}</div>
+            <div style={{ fontSize:9, color:"var(--text3)", marginTop:3 }}>{c.sub}</div>
           </div>
         ))}
       </div>
-      <div style={{ background:"#0e0e1d", border:"1px solid #181830", borderRadius:10, padding:16, marginBottom:12 }}>
-        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", marginBottom:13, textTransform:"uppercase" }}>14-Day Completion %</div>
+      <div style={{ background:"var(--card-bg)", border:"1px solid var(--border)", borderRadius:10, padding:16, marginBottom:12 }}>
+        <div style={{ fontSize:11, letterSpacing:"2px", color:"var(--text2)", marginBottom:13, textTransform:"uppercase" }}>14-Day Completion %</div>
         <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:110, paddingBottom:20, position:"relative" }}>
           {[25,50,75,100].map(y => <div key={y} style={{ position:"absolute", left:0, right:0, bottom: 20+(y/100)*90, height:1, background:"#1a1a2e" }} />)}
           {last14.map((e,i) => {
             const barH = Math.max(2, Math.round((e.pct/100)*90));
-            const fill = e.pct===100?"#10b981":e.pct>0?"#f97316":"#1e1e38";
+            const fill = e.pct===100?"#10b981":e.pct>0?"#f97316":"var(--bg3)";
             return (
               <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4, height:"100%", justifyContent:"flex-end", position:"relative", zIndex:1 }}>
                 {e.pct > 0 && <div style={{ fontSize:8, color:fill, marginBottom:1 }}>{e.pct}%</div>}
                 <div style={{ width:"100%", height:barH, background:fill, borderRadius:"3px 3px 0 0" }} />
-                <div style={{ fontSize:9, color:"#525270", marginTop:2 }}>{e.day}</div>
+                <div style={{ fontSize:9, color:"var(--text4)", marginTop:2 }}>{e.day}</div>
               </div>
             );
           })}
         </div>
       </div>
-      <div style={{ background:"#0e0e1d", border:"1px solid #181830", borderRadius:10, padding:16 }}>
-        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", marginBottom:3, textTransform:"uppercase" }}>Category Consistency</div>
-        <div style={{ fontSize:10, color:"#6e6e8a", marginBottom:14 }}>Tap a category to see individual tasks</div>
+      <div style={{ background:"var(--card-bg)", border:"1px solid var(--border)", borderRadius:10, padding:16 }}>
+        <div style={{ fontSize:11, letterSpacing:"2px", color:"var(--text2)", marginBottom:3, textTransform:"uppercase" }}>Category Consistency</div>
+        <div style={{ fontSize:10, color:"var(--text3)", marginBottom:14 }}>Tap a category to see individual tasks</div>
         {catStats.map(({ cat, color, rate, tasks:catTasks }) => <CategoryRow key={cat} cat={cat} color={color} rate={rate} catTasks={catTasks} />)}
       </div>
     </div>
@@ -1623,12 +1696,12 @@ function GoalsView({ goals, setGoals, onAdd }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-        <div style={{ fontSize:11, letterSpacing:"2px", color:"#a0a0bc", textTransform:"uppercase" }}>Long-Term Goals</div>
-        <button onClick={onAdd} className="btn-glow" style={{ display:"flex", alignItems:"center", gap:6, background:"#f97316", border:"none", borderRadius:6, padding:"6px 14px", color:"#fff", fontSize:11, fontFamily:"inherit", cursor:"pointer", letterSpacing:"1px" }}>
+        <div style={{ fontSize:11, letterSpacing:"2px", color:"var(--text2)", textTransform:"uppercase" }}>Long-Term Goals</div>
+        <button onClick={onAdd} className="btn-glow" style={{ display:"flex", alignItems:"center", gap:6, background:"#f97316", border:"none", borderRadius:6, padding:"6px 14px", color:"var(--text1)", fontSize:11, fontFamily:"inherit", cursor:"pointer", letterSpacing:"1px" }}>
           <Icon name="plus" size={12} /> ADD GOAL
         </button>
       </div>
-      {goals.length===0 && <div style={{ textAlign:"center", padding:"60px 20px", color:"#525270" }}><div style={{ fontSize:32, marginBottom:12 }}>◎</div><div style={{ fontSize:13 }}>Set your first long-term goal</div></div>}
+      {goals.length===0 && <div style={{ textAlign:"center", padding:"60px 20px", color:"var(--text4)" }}><div style={{ fontSize:32, marginBottom:12 }}>◎</div><div style={{ fontSize:13 }}>Set your first long-term goal</div></div>}
       <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
         {goals.map(g => {
           const milestones = g.milestones || [];
@@ -1639,47 +1712,47 @@ function GoalsView({ goals, setGoals, onAdd }) {
           const color   = catColors[g.category] || "#f97316";
           const isOpen  = expandedGoal === g.id;
           return (
-            <div key={g.id} className="goal-card" style={{ background:"#0e0e1d", border:`1px solid ${isOpen ? color+"44" : "#181830"}`, borderRadius:14, overflow:"hidden" }}>
+            <div key={g.id} className="goal-card" style={{ background:"var(--card-bg)", border:`1px solid ${isOpen ? color+"44" : "#181830"}`, borderRadius:14, overflow:"hidden" }}>
               <div style={{ padding:"16px 18px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
                   <div style={{ flex:1, minWidth:0, marginRight:12 }}>
-                    <div style={{ fontSize:15, fontWeight:500, color:"#fff", marginBottom:5 }}>{g.name}</div>
-                    <div style={{ fontSize:11, color:"#a0a0bc", display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+                    <div style={{ fontSize:15, fontWeight:500, color:"var(--text1)", marginBottom:5 }}>{g.name}</div>
+                    <div style={{ fontSize:11, color:"var(--text2)", display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
                       <span style={{ background:color+"1a", color, padding:"2px 8px", borderRadius:4, fontSize:10, letterSpacing:"1px" }}>{g.category}</span>
                       {g.deadline && <span>Due: {fmtDate(g.deadline)}</span>}
-                      {milestones.length > 0 && <span style={{ color:"#b0b0c8", display:"flex", alignItems:"center", gap:3 }}><Icon name="milestone" size={10} /> {doneMilestones}/{milestones.length} milestones</span>}
+                      {milestones.length > 0 && <span style={{ color:"var(--text2)", display:"flex", alignItems:"center", gap:3 }}><Icon name="milestone" size={10} /> {doneMilestones}/{milestones.length} milestones</span>}
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontSize:22, fontWeight:800, color }}>{pct}%</div>
-                    <button onClick={() => setExpandedGoal(isOpen ? null : g.id)} style={{ background:"#13132a", border:"1px solid #525270", borderRadius:6, cursor:"pointer", color:"#c0bdd8", padding:"5px 7px", display:"flex" }}><Icon name={isOpen ? "chevup" : "chev"} size={12} /></button>
-                    <button onClick={() => setGoals(p=>p.filter(x=>x.id!==g.id))} style={{ background:"none", border:"none", cursor:"pointer", color:"#525270", padding:4, display:"flex" }}><Icon name="trash" size={13} /></button>
+                    <button onClick={() => setExpandedGoal(isOpen ? null : g.id)} style={{ background:"var(--bg3)", border:"1px solid #525270", borderRadius:6, cursor:"pointer", color:"var(--text1)", padding:"5px 7px", display:"flex" }}><Icon name={isOpen ? "chevup" : "chev"} size={12} /></button>
+                    <button onClick={() => setGoals(p=>p.filter(x=>x.id!==g.id))} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--text4)", padding:4, display:"flex" }}><Icon name="trash" size={13} /></button>
                   </div>
                 </div>
-                <div style={{ background:"#13132a", borderRadius:4, height:7, overflow:"hidden", marginBottom:8 }}>
+                <div style={{ background:"var(--bg3)", borderRadius:4, height:7, overflow:"hidden", marginBottom:8 }}>
                   <div style={{ height:"100%", width:`${Math.min(100,pct)}%`, background:pct===100?"#10b981":color, borderRadius:4, transition:"width 0.8s" }} />
                 </div>
                 {milestones.length > 0 && (
                   <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:8 }}>
-                    {milestones.map(m => <div key={m.id} title={m.name} style={{ width:16, height:16, borderRadius:3, background: m.done ? color : "#1e1e38", border:`1px solid ${m.done ? color : "#6e6e8a"}`, cursor:"pointer" }} onClick={() => toggleMilestone(g.id, m.id)} />)}
+                    {milestones.map(m => <div key={m.id} title={m.name} style={{ width:16, height:16, borderRadius:3, background: m.done ? color : "var(--bg3)", border:`1px solid ${m.done ? color : "#6e6e8a"}`, cursor:"pointer" }} onClick={() => toggleMilestone(g.id, m.id)} />)}
                   </div>
                 )}
                 {!milestones.length && (
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                    <span style={{ fontSize:11, color:"#a0a0bc" }}>{g.unit}:</span>
-                    <input type="number" value={g.current} onChange={e => setGoals(p=>p.map(x=>x.id===g.id?{...x,current:Math.min(x.target,Math.max(0,Number(e.target.value)))}:x))} style={{ width:80, background:"#13132a", border:"1px solid #525270", borderRadius:5, padding:"4px 8px", color:"#fff", fontSize:12, outline:"none" }} />
-                    <span style={{ fontSize:11, color:"#a0a0bc" }}>/ {g.target} {g.unit}</span>
+                    <span style={{ fontSize:11, color:"var(--text2)" }}>{g.unit}:</span>
+                    <input type="number" value={g.current} onChange={e => setGoals(p=>p.map(x=>x.id===g.id?{...x,current:Math.min(x.target,Math.max(0,Number(e.target.value)))}:x))} style={{ width:80, background:"var(--bg3)", border:"1px solid #525270", borderRadius:5, padding:"4px 8px", color:"var(--text1)", fontSize:12, outline:"none" }} />
+                    <span style={{ fontSize:11, color:"var(--text2)" }}>/ {g.target} {g.unit}</span>
                   </div>
                 )}
-                {g.notes && <div style={{ marginTop:10, fontSize:12, color:"#a0a0bc", borderLeft:`3px solid ${color}`, paddingLeft:10, lineHeight:1.6 }}>{g.notes}</div>}
+                {g.notes && <div style={{ marginTop:10, fontSize:12, color:"var(--text2)", borderLeft:`3px solid ${color}`, paddingLeft:10, lineHeight:1.6 }}>{g.notes}</div>}
               </div>
               {isOpen && (
-                <div style={{ borderTop:"1px solid #181830", padding:"14px 18px", background:"#0b0b18" }}>
+                <div style={{ borderTop:"1px solid var(--border)", padding:"14px 18px", background:"var(--header-bg)" }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-                    <div style={{ fontSize:10, letterSpacing:"2px", color:"#a0a0bc", textTransform:"uppercase" }}>Milestones</div>
-                    <button onClick={() => setMsModal(g.id)} style={{ display:"flex", alignItems:"center", gap:5, background:"#13132a", border:"1px solid #525270", borderRadius:6, padding:"5px 11px", color:"#c0bdd8", fontSize:11, fontFamily:"inherit", cursor:"pointer" }}><Icon name="plus" size={11} /> Add</button>
+                    <div style={{ fontSize:10, letterSpacing:"2px", color:"var(--text2)", textTransform:"uppercase" }}>Milestones</div>
+                    <button onClick={() => setMsModal(g.id)} style={{ display:"flex", alignItems:"center", gap:5, background:"var(--bg3)", border:"1px solid #525270", borderRadius:6, padding:"5px 11px", color:"var(--text1)", fontSize:11, fontFamily:"inherit", cursor:"pointer" }}><Icon name="plus" size={11} /> Add</button>
                   </div>
-                  {milestones.length === 0 && <div style={{ fontSize:12, color:"#525270", textAlign:"center", padding:"16px 0" }}>No milestones yet.</div>}
+                  {milestones.length === 0 && <div style={{ fontSize:12, color:"var(--text4)", textAlign:"center", padding:"16px 0" }}>No milestones yet.</div>}
                   <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                     {milestones.map(m => {
                       const isEditing = editMs?.goalId === g.id && editMs?.milestone?.id === m.id;
@@ -1690,7 +1763,7 @@ function GoalsView({ goals, setGoals, onAdd }) {
                         <div key={m.id} className="ms-row" style={{ padding:"10px 12px", background: isOverdue?"#120a0a":"#0e0e1d", border:`1px solid ${isOverdue?"#f43f5e33":m.done?"#1e3a1e":"#1a1a30"}`, borderRadius:9 }}>
                           {isEditing ? (
                             <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                              <div onClick={() => toggleMilestone(g.id, m.id)} style={{ width:18, height:18, borderRadius:4, border:`2px solid ${m.done?color:"#6e6e8a"}`, background:m.done?color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>{m.done && <Icon name="check" size={10} />}</div>
+                              <div onClick={() => toggleMilestone(g.id, m.id)} style={{ width:18, height:18, borderRadius:4, border:`2px solid ${m.done?color:"var(--text3)"}`, background:m.done?color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>{m.done && <Icon name="check" size={10} />}</div>
                               <InlineMsEdit initial={m} onSave={(name, deadline) => saveEditMs(g.id, m.id, name, deadline)} onCancel={() => setEditMs(null)} />
                             </div>
                           ) : (
@@ -1700,14 +1773,14 @@ function GoalsView({ goals, setGoals, onAdd }) {
                                 <div style={{ fontSize:13, color:m.done?"#a0a0bc":isOverdue?"#f87090":"#d8d6e8", textDecoration:m.done?"line-through":"none" }}>{m.name}</div>
                                 {m.deadline && (
                                   <div style={{ fontSize:10, marginTop:3, display:"flex", alignItems:"center", gap:6 }}>
-                                    <span style={{ color:"#6e6e8a" }}><Icon name="calendar" size={9}/> {fmtDate(m.deadline)}</span>
+                                    <span style={{ color:"var(--text3)" }}><Icon name="calendar" size={9}/> {fmtDate(m.deadline)}</span>
                                     {!m.done && daysLeft !== null && <span style={{ color: isOverdue?"#f43f5e":daysLeft<=7?"#f97316":"#a0a0bc" }}>{isOverdue ? `${Math.abs(daysLeft)}d overdue` : daysLeft===0 ? "due today" : `${daysLeft}d left`}</span>}
                                   </div>
                                 )}
                               </div>
                               <div style={{ display:"flex", gap:4, flexShrink:0 }}>
-                                <button onClick={() => setEditMs({ goalId:g.id, milestone:m })} style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:3, display:"flex" }}><Icon name="edit" size={12} /></button>
-                                <button onClick={() => deleteMilestone(g.id, m.id)} style={{ background:"none", border:"none", cursor:"pointer", color:"#6e6e8a", padding:3, display:"flex" }}><Icon name="trash" size={12} /></button>
+                                <button onClick={() => setEditMs({ goalId:g.id, milestone:m })} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--text3)", padding:3, display:"flex" }}><Icon name="edit" size={12} /></button>
+                                <button onClick={() => deleteMilestone(g.id, m.id)} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--text3)", padding:3, display:"flex" }}><Icon name="trash" size={12} /></button>
                               </div>
                             </div>
                           )}
@@ -1734,8 +1807,8 @@ function InlineMsEdit({ initial, onSave, onCancel }) {
     <div style={{ display:"flex", alignItems:"center", gap:6, flex:1, flexWrap:"wrap" }}>
       <input value={name} onChange={e=>setName(e.target.value)} autoFocus style={{ ...inputStyle, flex:1, minWidth:100, padding:"5px 8px", fontSize:12 }} />
       <input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)} style={{ ...inputStyle, width:140, padding:"5px 8px", fontSize:12 }} />
-      <button onClick={() => onSave(name.trim()||initial.name, deadline)} style={{ background:"#f97316", border:"none", borderRadius:5, padding:"5px 10px", color:"#fff", fontFamily:"inherit", fontSize:11, cursor:"pointer" }}>✓</button>
-      <button onClick={onCancel} style={{ background:"#13132a", border:"1px solid #525270", borderRadius:5, padding:"5px 8px", color:"#c0bdd8", fontFamily:"inherit", fontSize:11, cursor:"pointer" }}>✕</button>
+      <button onClick={() => onSave(name.trim()||initial.name, deadline)} style={{ background:"#f97316", border:"none", borderRadius:5, padding:"5px 10px", color:"var(--text1)", fontFamily:"inherit", fontSize:11, cursor:"pointer" }}>✓</button>
+      <button onClick={onCancel} style={{ background:"var(--bg3)", border:"1px solid #525270", borderRadius:5, padding:"5px 8px", color:"var(--text1)", fontFamily:"inherit", fontSize:11, cursor:"pointer" }}>✕</button>
     </div>
   );
 }
@@ -1748,7 +1821,7 @@ function MilestoneModal({ onClose, onSave }) {
       <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
         <Field label="Milestone Name"><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Launch MVP" style={inputStyle} autoFocus /></Field>
         <Field label="Deadline (optional)"><input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)} style={inputStyle} /></Field>
-        <button onClick={() => { if(!name.trim()) return; onSave({ name:name.trim(), deadline }); }} disabled={!name.trim()} style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"#fff", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px" }}>ADD MILESTONE</button>
+        <button onClick={() => { if(!name.trim()) return; onSave({ name:name.trim(), deadline }); }} disabled={!name.trim()} style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"var(--text1)", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px" }}>ADD MILESTONE</button>
       </div>
     </Modal>
   );
@@ -1761,9 +1834,9 @@ function DayTimeline({ tasks, nowMins }) {
   const hrs = [6,9,12,15,18,21];
   const lbl = h => h>12?`${h-12}pm`:h===12?"12pm":`${h}am`;
   return (
-    <div style={{ background:"#0d0d1e", border:"1px solid #181830", borderRadius:10, padding:"12px 14px 16px", marginBottom:16 }}>
-      <div style={{ fontSize:10, letterSpacing:"2px", color:"#a0a0bc", marginBottom:10, textTransform:"uppercase" }}>Day Timeline</div>
-      <div style={{ position:"relative", height:32, background:"#13132a", borderRadius:6, overflow:"hidden" }}>
+    <div style={{ background:"var(--card-bg)", border:"1px solid var(--border)", borderRadius:10, padding:"12px 14px 16px", marginBottom:16 }}>
+      <div style={{ fontSize:10, letterSpacing:"2px", color:"var(--text2)", marginBottom:10, textTransform:"uppercase" }}>Day Timeline</div>
+      <div style={{ position:"relative", height:32, background:"var(--bg3)", borderRadius:6, overflow:"hidden" }}>
         {tasks.map(task => {
           const tm = t2m(task.startTime||"00:00"); const left = pct(tm); const width = Math.max(0.8, task.duration/R*100);
           if (left>=100 || tm<S) return null;
@@ -1772,7 +1845,7 @@ function DayTimeline({ tasks, nowMins }) {
         {nowMins>=S && nowMins<=E && <div style={{ position:"absolute", left:`${pct(nowMins)}%`, top:0, bottom:0, width:2, background:"#fff", opacity:.9, zIndex:10 }}><div style={{ position:"absolute", top:-1, left:-3, width:8, height:8, borderRadius:"50%", background:"#fff" }} /></div>}
       </div>
       <div style={{ position:"relative", height:14, marginTop:4 }}>
-        {hrs.map(h => { const p = pct(h*60); if(p<0||p>100) return null; return <div key={h} style={{ position:"absolute", left:`${p}%`, transform:"translateX(-50%)", fontSize:9, color:"#6e6e8a" }}>{lbl(h)}</div>; })}
+        {hrs.map(h => { const p = pct(h*60); if(p<0||p>100) return null; return <div key={h} style={{ position:"absolute", left:`${p}%`, transform:"translateX(-50%)", fontSize:9, color:"var(--text3)" }}>{lbl(h)}</div>; })}
       </div>
     </div>
   );
@@ -1834,18 +1907,18 @@ function TaskModal({ onClose, onSave, colorOptions, initial, allTasks, goals }) 
           {repType==="weekdays" && <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>{WEEKDAYS.map((d,i) => <button key={i} onClick={()=>toggleDay(i)} className={`chip${repDays.includes(i)?" on":""}`}>{d}</button>)}</div>}
           {repType==="monthDates" && <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>{MONTH_DATES.map(d => <button key={d} onClick={()=>toggleDate(d)} className={`dchip${repDates.includes(d)?" on":""}`}>{d}</button>)}</div>}
         </Field>
-        <div style={{ borderTop:"1px solid #181830", paddingTop:14 }}>
+        <div style={{ borderTop:"1px solid var(--border)", paddingTop:14 }}>
           <button onClick={() => { setShowLink(v=>!v); if(showLink){ setLinkedGoalId(""); setLinkedMsId(""); } }} style={{ display:"flex", alignItems:"center", gap:7, background:"none", border:"none", cursor:"pointer", color:showLink?"#f97316":"#b0b0c8", fontFamily:"inherit", fontSize:12, padding:0, width:"100%" }}>
             <Icon name="link" size={13} />{showLink ? "Remove Goal Link" : "Link to Goal Milestone"}<span style={{ marginLeft:"auto", fontSize:14, opacity:.5 }}>{showLink?"×":"+"}</span>
           </button>
-          {showLink && (goals||[]).length === 0 && <div style={{ marginTop:12, fontSize:12, color:"#a0a0bc", background:"#13132a", borderRadius:8, padding:"11px 13px" }}>No goals yet. Create a goal first.</div>}
+          {showLink && (goals||[]).length === 0 && <div style={{ marginTop:12, fontSize:12, color:"var(--text2)", background:"var(--bg3)", borderRadius:8, padding:"11px 13px" }}>No goals yet. Create a goal first.</div>}
           {showLink && (goals||[]).length > 0 && !linkedGoalId && (
             <div style={{ marginTop:12 }}>
-              <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#a0a0bc", marginBottom:8, textTransform:"uppercase" }}>Select Goal</div>
+              <div style={{ fontSize:10, letterSpacing:"1.5px", color:"var(--text2)", marginBottom:8, textTransform:"uppercase" }}>Select Goal</div>
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                 {(goals||[]).map(g => (
-                  <div key={g.id} onClick={() => { setLinkedGoalId(g.id); setLinkedMsId(""); }} style={{ background:"#13132a", border:"1px solid #525270", borderRadius:9, padding:"11px 13px", cursor:"pointer" }} onMouseEnter={e=>e.currentTarget.style.borderColor="#f9731660"} onMouseLeave={e=>e.currentTarget.style.borderColor="#525270"}>
-                    <div style={{ fontSize:13, color:"#e8e6f0", fontWeight:500 }}>{g.name}</div>
+                  <div key={g.id} onClick={() => { setLinkedGoalId(g.id); setLinkedMsId(""); }} style={{ background:"var(--bg3)", border:"1px solid #525270", borderRadius:9, padding:"11px 13px", cursor:"pointer" }} onMouseEnter={e=>e.currentTarget.style.borderColor="#f9731660"} onMouseLeave={e=>e.currentTarget.style.borderColor="#525270"}>
+                    <div style={{ fontSize:13, color:"var(--text1)", fontWeight:500 }}>{g.name}</div>
                   </div>
                 ))}
               </div>
@@ -1856,15 +1929,15 @@ function TaskModal({ onClose, onSave, colorOptions, initial, allTasks, goals }) 
               <div style={{ background:"#f9731610", border:"1px solid #f9731644", borderRadius:9, padding:"11px 14px", marginBottom:12 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                   <span style={{ fontSize:13, color:"#f97316", fontWeight:500 }}>{selectedGoal.name}</span>
-                  <button onClick={() => { setLinkedGoalId(""); setLinkedMsId(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#b0b0c8", fontSize:11, fontFamily:"inherit", padding:0 }}>✕ change</button>
+                  <button onClick={() => { setLinkedGoalId(""); setLinkedMsId(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--text2)", fontSize:11, fontFamily:"inherit", padding:0 }}>✕ change</button>
                 </div>
               </div>
-              <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#a0a0bc", marginBottom:8, textTransform:"uppercase" }}>Link to Milestone</div>
-              {availableMilestones.length === 0 ? <div style={{ fontSize:12, color:"#a0a0bc", background:"#13132a", borderRadius:8, padding:"11px 13px" }}>No milestones on this goal yet.</div> : (
+              <div style={{ fontSize:10, letterSpacing:"1.5px", color:"var(--text2)", marginBottom:8, textTransform:"uppercase" }}>Link to Milestone</div>
+              {availableMilestones.length === 0 ? <div style={{ fontSize:12, color:"var(--text2)", background:"var(--bg3)", borderRadius:8, padding:"11px 13px" }}>No milestones on this goal yet.</div> : (
                 <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                   {availableMilestones.map(m => {
                     const isSel = linkedMsId === m.id;
-                    return <div key={m.id} onClick={() => setLinkedMsId(isSel ? "" : m.id)} style={{ display:"flex", alignItems:"center", gap:10, background: isSel?"#f9731614":"#13132a", border:`1px solid ${isSel?"#f9731650":"#1e1e38"}`, borderRadius:8, padding:"10px 13px", cursor:"pointer" }}>
+                    return <div key={m.id} onClick={() => setLinkedMsId(isSel ? "" : m.id)} style={{ display:"flex", alignItems:"center", gap:10, background: isSel?"#f9731614":"#13132a", border:`1px solid ${isSel?"#f9731650":"var(--bg3)"}`, borderRadius:8, padding:"10px 13px", cursor:"pointer" }}>
                       <div style={{ width:16, height:16, borderRadius:"50%", border:`2px solid ${isSel?"#f97316":"#a0a0bc"}`, background:isSel?"#f97316":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{isSel && <div style={{ width:6, height:6, borderRadius:"50%", background:"#fff" }} />}</div>
                       <span style={{ fontSize:13, color: isSel?"#f97316":"#d8d6e8" }}>{m.name}</span>
                     </div>;
@@ -1874,7 +1947,7 @@ function TaskModal({ onClose, onSave, colorOptions, initial, allTasks, goals }) 
             </div>
           )}
         </div>
-        <button onClick={save} disabled={!name.trim()} style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"#fff", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px", marginTop:4 }}>
+        <button onClick={save} disabled={!name.trim()} style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"var(--text1)", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px", marginTop:4 }}>
           {initial ? "SAVE CHANGES" : "ADD TASK"}
         </button>
         {cascadePreview.length > 0 && (
@@ -1908,9 +1981,327 @@ function GoalModal({ onClose, onSave }) {
         <Field label="Category"><select value={category} onChange={e=>setCategory(e.target.value)} style={inputStyle}>{cats.map(c=><option key={c}>{c}</option>)}</select></Field>
         <Field label="Deadline (optional)"><input type="date" value={deadline} onChange={e=>setDeadline(e.target.value)} style={inputStyle} /></Field>
         <Field label="Notes (optional)"><textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="What does achieving this mean to you?" style={{ ...inputStyle, minHeight:70, resize:"vertical" }} /></Field>
-        <button onClick={() => { if(!name.trim()) return; onSave({ id:"g"+Date.now(), name:name.trim(), target:Number(target), current:0, unit, category, deadline, notes, milestones:[] }); }} disabled={!name.trim()} style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"#fff", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px", marginTop:4 }}>CREATE GOAL</button>
+        <button onClick={() => { if(!name.trim()) return; onSave({ id:"g"+Date.now(), name:name.trim(), target:Number(target), current:0, unit, category, deadline, notes, milestones:[] }); }} disabled={!name.trim()} style={{ background:name.trim()?"#f97316":"#13132a", border:"none", borderRadius:8, padding:"12px", color:"var(--text1)", fontFamily:"inherit", fontSize:13, cursor:name.trim()?"pointer":"default", letterSpacing:"1px", marginTop:4 }}>CREATE GOAL</button>
       </div>
     </Modal>
+  );
+}
+
+
+// ─── Week View ────────────────────────────────────────────────────────────────
+function WeekView({ tasks, logs, timezone, toggleTask, tkey, setSelectedDate, setTab }) {
+  const today = new Date();
+
+  // Build array of 7 days starting from Monday of current week
+  const getWeekDays = () => {
+    const days = [];
+    const d = new Date(today);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day; // Monday start
+    d.setDate(d.getDate() + diff);
+    for (let i = 0; i < 7; i++) {
+      const clone = new Date(d);
+      clone.setDate(d.getDate() + i);
+      days.push(clone);
+    }
+    return days;
+  };
+
+  const weekDays = getWeekDays();
+  const DAY_LABELS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+  const getDayStats = (date) => {
+    const key = date.toLocaleDateString("en-CA", { timeZone: timezone });
+    const applicable = tasks.filter(t => taskAppliesToDate(t, key));
+    const done = applicable.filter(t => (logs[key]||{})[t.id]).length;
+    return { key, applicable, done, pct: applicable.length ? Math.round(done/applicable.length*100) : -1 };
+  };
+
+  const goToDay = (key) => {
+    setSelectedDate(key === tkey ? null : key);
+    setTab("today");
+  };
+
+  // Total week stats
+  const weekStats = weekDays.map(d => getDayStats(d));
+  const totalTasks = weekStats.reduce((s, d) => s + d.applicable.length, 0);
+  const doneTasks  = weekStats.reduce((s, d) => s + d.done, 0);
+  const weekPct    = totalTasks ? Math.round(doneTasks / totalTasks * 100) : 0;
+
+  // Find busiest day
+  const busiestDay = weekStats.reduce((max, d) => d.applicable.length > max.applicable.length ? d : max, weekStats[0]);
+
+  return (
+    <div>
+      {/* Week summary banner */}
+      <div style={{ background:"var(--card-bg)", border:"1px solid var(--border)", borderRadius:14, padding:"18px 20px", marginBottom:18 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+          <div>
+            <div style={{ fontSize:10, color:"var(--text3)", letterSpacing:"2px", textTransform:"uppercase", marginBottom:6 }}>This Week</div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontSize:42, fontWeight:800, color: weekPct===100?"var(--green)":"var(--text1)", lineHeight:1 }}>
+              {weekPct}<span style={{ fontSize:18, color:"var(--text3)" }}>%</span>
+            </div>
+            <div style={{ fontSize:11, color:"var(--text3)", marginTop:4 }}>{doneTasks} / {totalTasks} tasks completed</div>
+          </div>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:10, color:"var(--text3)", marginBottom:4 }}>Busiest day</div>
+            <div style={{ fontSize:13, color:"var(--accent)", fontWeight:600 }}>
+              {busiestDay.applicable.length > 0
+                ? weekDays[weekStats.indexOf(busiestDay)].toLocaleDateString("en-GB",{weekday:"short"})
+                : "—"}
+            </div>
+            <div style={{ fontSize:10, color:"var(--text3)", marginTop:2 }}>{busiestDay.applicable.length} tasks</div>
+          </div>
+        </div>
+        {/* Week progress bar */}
+        <div style={{ background:"var(--bg3)", borderRadius:4, height:6, overflow:"hidden", marginTop:14 }}>
+          <div style={{ height:"100%", width:`${weekPct}%`, background: weekPct===100?"var(--green)":"linear-gradient(90deg,#f97316,#f43f5e)", borderRadius:4, transition:"width 0.8s" }} />
+        </div>
+      </div>
+
+      {/* 7-day column grid */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:6, marginBottom:20 }}>
+        {weekDays.map((date, i) => {
+          const { key, applicable, done, pct } = getDayStats(date);
+          const isToday = key === tkey;
+          const isPast  = key < tkey;
+          const isFuture = key > tkey;
+          const bgColor = pct < 0 ? "var(--bg3)"
+            : pct === 0 && isPast ? "#f43f5e22"
+            : pct === 100 ? "#10b98122"
+            : pct > 0 ? "#f9731618"
+            : "var(--bg3)";
+
+          return (
+            <div key={key} className="week-day-col" onClick={() => goToDay(key)}
+              style={{ background:bgColor, border:`1px solid ${isToday?"var(--accent)":"var(--border)"}`, borderRadius:10, padding:"10px 4px", display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
+              <div style={{ fontSize:9, color: isToday?"var(--accent)":"var(--text3)", letterSpacing:"1px", textTransform:"uppercase", fontWeight: isToday?700:400 }}>{DAY_LABELS[i]}</div>
+              <div style={{ fontSize:13, fontWeight:700, color: isToday?"var(--accent)":"var(--text2)" }}>{date.getDate()}</div>
+              {applicable.length > 0 ? (
+                <>
+                  <div style={{ fontSize:10, color: pct===100?"var(--green)":pct>0?"var(--accent)":"var(--text4)" }}>
+                    {done}/{applicable.length}
+                  </div>
+                  {/* Mini bar */}
+                  <div style={{ width:"80%", height:3, background:"var(--bg3)", borderRadius:2 }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background: pct===100?"var(--green)":"var(--accent)", borderRadius:2 }} />
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize:9, color:"var(--text4)" }}>—</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Task list for each day */}
+      {weekDays.map((date, i) => {
+        const { key, applicable, done } = getDayStats(date);
+        const isToday = key === tkey;
+        if (applicable.length === 0) return null;
+        return (
+          <div key={key} style={{ marginBottom:16 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <div style={{ width:8, height:8, borderRadius:"50%", background: isToday?"var(--accent)":"var(--border2)", flexShrink:0 }} />
+                <span style={{ fontSize:12, fontWeight:600, color: isToday?"var(--accent)":"var(--text2)", letterSpacing:"0.5px" }}>
+                  {isToday ? "TODAY — " : ""}{date.toLocaleDateString("en-GB",{weekday:"long", day:"numeric", month:"short"})}
+                </span>
+              </div>
+              <span style={{ fontSize:11, color:"var(--text3)" }}>{done}/{applicable.length}</span>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {applicable.sort((a,b)=>(a.startTime||"").localeCompare(b.startTime||"")).map(task => {
+                const isDone = !!(logs[key]?.[task.id]);
+                return (
+                  <div key={task.id} onClick={() => toggleTask(task.id, key)}
+                    style={{ display:"flex", alignItems:"center", gap:10, background:"var(--card-bg)", border:`1px solid ${isDone?task.color+"33":"var(--border)"}`, borderRadius:9, padding:"9px 12px", cursor:"pointer", opacity: key > tkey ? 0.7 : 1 }}>
+                    <div style={{ width:18, height:18, borderRadius:5, border:`2px solid ${isDone?task.color:"var(--border2)"}`, background:isDone?task.color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:"#fff" }}>
+                      {isDone && <Icon name="check" size={10} />}
+                    </div>
+                    <div style={{ width:3, height:20, background:task.color, borderRadius:2, flexShrink:0, opacity:isDone?0.4:1 }} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, color: isDone?"var(--text3)":"var(--text1)", textDecoration:isDone?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{task.name}</div>
+                      {task.startTime && <div style={{ fontSize:10, color:"var(--text3)", marginTop:2 }}>{fmt12(task.startTime)} · {fmtMins(task.duration)}</div>}
+                    </div>
+                    <div style={{ width:8, height:8, borderRadius:"50%", background:task.color, flexShrink:0, opacity:0.7 }} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Summary View (Daily End-of-Day Report) ────────────────────────────────────
+function SummaryView({ tasks, logs, timezone, goals }) {
+  const today = new Date();
+  const tkey  = todayKey(timezone);
+  const [selectedDay, setSelectedDay] = useState(tkey);
+
+  const getReport = (dateKey) => {
+    const applicable = tasks.filter(t => taskAppliesToDate(t, dateKey));
+    const dayLog     = logs[dateKey] || {};
+    const done       = applicable.filter(t => dayLog[t.id]);
+    const missed     = applicable.filter(t => !dayLog[t.id]);
+    const pct        = applicable.length ? Math.round(done.length / applicable.length * 100) : 0;
+    const totalMins  = done.reduce((s,t) => s+t.duration, 0);
+
+    // Category breakdown
+    const catMap = {};
+    applicable.forEach(t => {
+      const cat = t.category || "Other";
+      if (!catMap[cat]) catMap[cat] = { done:0, total:0, color:t.color };
+      catMap[cat].total++;
+      if (dayLog[t.id]) catMap[cat].done++;
+    });
+
+    return { applicable, done, missed, pct, totalMins, catMap };
+  };
+
+  const { applicable, done, missed, pct, totalMins, catMap } = getReport(selectedDay);
+
+  // Last 7 days for the picker
+  const last7 = Array(7).fill(null).map((_,i) => {
+    const d = new Date(today); d.setDate(today.getDate() - (6-i));
+    return { date:d, key:d.toLocaleDateString("en-CA",{timeZone:timezone}) };
+  });
+
+  const grade = pct === 100 ? { label:"Perfect", color:"#10b981", emoji:"🏆" }
+    : pct >= 75   ? { label:"Great",   color:"#10b981", emoji:"⭐" }
+    : pct >= 50   ? { label:"Good",    color:"#f97316", emoji:"👍" }
+    : pct >= 25   ? { label:"Fair",    color:"#eab308", emoji:"💪" }
+    : pct > 0     ? { label:"Started", color:"#f43f5e", emoji:"🌱" }
+    : applicable.length === 0 ? { label:"Rest day", color:"var(--text3)", emoji:"😌" }
+    : { label:"Missed", color:"#f43f5e", emoji:"❌" };
+
+  const dateDisplay = new Date(selectedDay+"T12:00:00").toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"});
+
+  return (
+    <div>
+      {/* Day picker strip */}
+      <div style={{ display:"flex", gap:6, marginBottom:18, overflowX:"auto", paddingBottom:4 }}>
+        {last7.map(({date, key}) => {
+          const isSel = key === selectedDay;
+          const { pct: dp } = getReport(key);
+          return (
+            <div key={key} onClick={() => setSelectedDay(key)}
+              style={{ flexShrink:0, width:46, background: isSel?"var(--accent)":"var(--card-bg)", border:`1px solid ${isSel?"var(--accent)":"var(--border)"}`, borderRadius:10, padding:"8px 4px", textAlign:"center", cursor:"pointer", transition:"all 0.15s" }}>
+              <div style={{ fontSize:9, color: isSel?"#fff":"var(--text3)", letterSpacing:"1px" }}>{WEEKDAYS[date.getDay()]}</div>
+              <div style={{ fontSize:14, fontWeight:700, color: isSel?"#fff":"var(--text2)", margin:"4px 0" }}>{date.getDate()}</div>
+              <div style={{ fontSize:9, color: isSel?"rgba(255,255,255,0.8)": dp===100?"var(--green)":dp>0?"var(--accent)":"var(--text4)" }}>
+                {dp < 0 ? "—" : `${dp}%`}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Grade card */}
+      <div style={{ background:"var(--card-bg)", border:`1px solid ${grade.color}33`, borderRadius:16, padding:"22px 20px", marginBottom:16, textAlign:"center" }}>
+        <div style={{ fontSize:40, marginBottom:8 }}>{grade.emoji}</div>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontSize:38, fontWeight:800, color:grade.color, lineHeight:1 }}>
+          {pct}<span style={{ fontSize:18, color:"var(--text3)" }}>%</span>
+        </div>
+        <div style={{ fontSize:16, fontWeight:600, color:grade.color, marginTop:4 }}>{grade.label}</div>
+        <div style={{ fontSize:12, color:"var(--text3)", marginTop:4 }}>{dateDisplay}</div>
+
+        {/* Stats row */}
+        <div style={{ display:"flex", justifyContent:"center", gap:24, marginTop:16, paddingTop:16, borderTop:"1px solid var(--border)" }}>
+          {[
+            { label:"Done",    value:done.length,      color:"var(--green)" },
+            { label:"Missed",  value:missed.length,    color:"#f43f5e" },
+            { label:"Minutes", value:totalMins,        color:"var(--accent)" },
+          ].map(s => (
+            <div key={s.label} style={{ textAlign:"center" }}>
+              <div style={{ fontFamily:"'Syne',sans-serif", fontSize:24, fontWeight:800, color:s.color }}>{s.value}</div>
+              <div style={{ fontSize:10, color:"var(--text3)", letterSpacing:"1px", textTransform:"uppercase" }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Category breakdown */}
+      {Object.keys(catMap).length > 0 && (
+        <div style={{ background:"var(--card-bg)", border:"1px solid var(--border)", borderRadius:12, padding:"14px 16px", marginBottom:16 }}>
+          <div style={{ fontSize:11, color:"var(--text3)", letterSpacing:"2px", textTransform:"uppercase", marginBottom:12 }}>By Category</div>
+          {Object.entries(catMap).map(([cat, { done:d, total, color }]) => {
+            const r = Math.round(d/total*100);
+            return (
+              <div key={cat} style={{ marginBottom:10 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                    <div style={{ width:8, height:8, borderRadius:2, background:color }} />
+                    <span style={{ fontSize:12, color:"var(--text2)" }}>{cat}</span>
+                  </div>
+                  <span style={{ fontSize:12, color: r===100?"var(--green)":color, fontWeight:600 }}>{d}/{total}</span>
+                </div>
+                <div style={{ background:"var(--bg3)", borderRadius:3, height:5 }}>
+                  <div style={{ height:"100%", width:`${r}%`, background: r===100?"var(--green)":color, borderRadius:3, transition:"width 0.6s" }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Completed tasks */}
+      {done.length > 0 && (
+        <div style={{ marginBottom:16 }}>
+          <div style={{ fontSize:11, color:"var(--green)", letterSpacing:"2px", textTransform:"uppercase", marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>
+            <Icon name="check" size={11} /> Completed ({done.length})
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {done.map(task => (
+              <div key={task.id} style={{ display:"flex", alignItems:"center", gap:10, background:"var(--card-bg)", border:`1px solid ${task.color}33`, borderRadius:9, padding:"10px 13px" }}>
+                <div style={{ width:18, height:18, borderRadius:5, background:task.color, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Icon name="check" size={10} /></div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, color:"var(--text2)", textDecoration:"line-through" }}>{task.name}</div>
+                  {task.startTime && <div style={{ fontSize:10, color:"var(--text4)", marginTop:2 }}>{fmt12(task.startTime)} · {fmtMins(task.duration)}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Missed tasks */}
+      {missed.length > 0 && selectedDay <= todayKey(timezone) && (
+        <div style={{ marginBottom:16 }}>
+          <div style={{ fontSize:11, color:"#f43f5e", letterSpacing:"2px", textTransform:"uppercase", marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>
+            <Icon name="close" size={11} /> Missed ({missed.length})
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {missed.map(task => (
+              <div key={task.id} style={{ display:"flex", alignItems:"center", gap:10, background:"#120a0a", border:"1px solid #f43f5e22", borderRadius:9, padding:"10px 13px", opacity:0.8 }}>
+                <div style={{ width:18, height:18, borderRadius:5, border:"2px solid #f43f5e44", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Icon name="close" size={9} /></div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, color:"var(--text3)" }}>{task.name}</div>
+                  {task.startTime && <div style={{ fontSize:10, color:"var(--text4)", marginTop:2 }}>{fmt12(task.startTime)} · {fmtMins(task.duration)}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Motivational message */}
+      <div style={{ background:"var(--card-bg)", border:"1px solid var(--border)", borderRadius:12, padding:"14px 16px", textAlign:"center" }}>
+        <div style={{ fontSize:12, color:"var(--text3)", lineHeight:1.7 }}>
+          {pct === 100 && "🎉 Perfect day! Every task completed. Keep the momentum going tomorrow."}
+          {pct >= 75 && pct < 100 && "⭐ Strong performance today. One more push tomorrow to hit 100%."}
+          {pct >= 50 && pct < 75  && "👍 Good effort. More than half done — build on this tomorrow."}
+          {pct >= 25 && pct < 50  && "💪 You started — that matters. Tomorrow aim to double this score."}
+          {pct > 0   && pct < 25  && "🌱 Small start is still a start. Every task done counts."}
+          {pct === 0 && applicable.length > 0 && "Tomorrow is a fresh slate. Open the app first thing and start strong."}
+          {applicable.length === 0 && "Rest day. Recharge and come back tomorrow."}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1918,10 +2309,10 @@ function GoalModal({ onClose, onSave }) {
 function Modal({ onClose, title, children }) {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.78)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:500, padding:16 }} onClick={onClose}>
-      <div style={{ background:"#0b0b18", border:"1px solid #525270", borderRadius:14, padding:24, width:"100%", maxWidth:440, maxHeight:"90vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
+      <div style={{ background:"var(--header-bg)", border:"1px solid #525270", borderRadius:14, padding:24, width:"100%", maxWidth:440, maxHeight:"90vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:18, fontWeight:700, color:"#fff" }}>{title}</div>
-          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:"#a0a0bc", padding:4, display:"flex" }}><Icon name="close" size={18} /></button>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontSize:18, fontWeight:700, color:"var(--text1)" }}>{title}</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--text2)", padding:4, display:"flex" }}><Icon name="close" size={18} /></button>
         </div>
         {children}
       </div>
@@ -1932,15 +2323,15 @@ function Modal({ onClose, title, children }) {
 function Field({ label, children }) {
   return (
     <div>
-      <div style={{ fontSize:10, letterSpacing:"1.5px", color:"#a0a0bc", marginBottom:6, textTransform:"uppercase" }}>{label}</div>
+      <div style={{ fontSize:10, letterSpacing:"1.5px", color:"var(--text2)", marginBottom:6, textTransform:"uppercase" }}>{label}</div>
       {children}
     </div>
   );
 }
 
 const inputStyle = {
-  width:"100%", background:"#13132a", border:"1px solid #525270", borderRadius:7,
-  padding:"10px 12px", color:"#e8e6f0", fontSize:13, outline:"none", fontFamily:"'DM Mono',monospace"
+  width:"100%", background:"var(--bg3)", border:"1px solid #525270", borderRadius:7,
+  padding:"10px 12px", color:"var(--text1)", fontSize:13, outline:"none", fontFamily:"'DM Mono',monospace"
 };
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
