@@ -272,11 +272,21 @@ const resolveOverlaps = tasks => {
 };
 
 const taskAppliesToDate = (task, dateStr) => {
+  // Check if this specific date has been excluded (deleted for this day only)
+  if (task.exceptions?.includes(dateStr)) return false;
   if (!task.repeat || task.repeat.type === "daily") return true;
   const d = new Date(dateStr + "T12:00:00");
   if (task.repeat.type === "weekdays")   return task.repeat.days?.includes(d.getDay()) ?? false;
   if (task.repeat.type === "monthDates") return task.repeat.dates?.includes(d.getDate()) ?? false;
   return true;
+};
+
+// Returns the effective task for a specific date — applies day-specific overrides
+const getEffectiveTask = (task, dateKey) => {
+  if (task.overrides?.[dateKey]) {
+    return { ...task, ...task.overrides[dateKey] };
+  }
+  return task;
 };
 
 const ordinal = n => `${n}${["st","nd","rd"][((n%100-20||n%100)%10)-1]||"th"}`;
@@ -1383,7 +1393,8 @@ function App() {
       </div>
 
       <div style={{ maxWidth:720, margin:"0 auto", padding:"18px 15px" }} className="fade-in" key={tab}>
-        {tab==="today"   && <TodayView tasks={viewTasks} allTasks={tasks} viewLog={viewLog} viewKey={viewKey} todayKey={tkey} selectedDate={selectedDate} setSelectedDate={setSelectedDate} toggleTask={toggleTask} completedToday={completedToday} totalToday={totalToday} pct={pct} onAddTask={() => setModal("task")} onEditTask={t => { setEditTask(t); setModal("task"); }} onDeleteTask={id => setTasks(p => p.filter(t => t.id!==id))} timezone={timezone} goals={goals} />}
+        {tab==="today"   && <TodayView tasks={viewTasks} allTasks={tasks} viewLog={viewLog} viewKey={viewKey} todayKey={tkey} selectedDate={selectedDate} setSelectedDate={setSelectedDate} toggleTask={toggleTask} completedToday={completedToday} totalToday={totalToday} pct={pct} onAddTask={() => setModal("task")} onEditTask={(task, dateKey) => { setEditTask({ task, dateKey }); setModal("task-choice"); }}
+          onDeleteTask={(taskId, dateKey) => { setEditTask({ taskId, dateKey }); setModal("delete-choice"); }} timezone={timezone} goals={goals} />}
         {tab==="week"    && <WeekView tasks={tasks} logs={logs} timezone={timezone} toggleTask={toggleTask} tkey={tkey} setSelectedDate={setSelectedDate} setTab={setTab} />}
         {tab==="summary" && <SummaryView tasks={tasks} logs={logs} timezone={timezone} goals={goals} />}
         {tab==="history" && <HistoryView tasks={tasks} logs={logs} timezone={timezone} setSelectedDate={setSelectedDate} setTab={setTab} />}
@@ -1391,7 +1402,82 @@ function App() {
         {tab==="goals"   && <GoalsView goals={goals} setGoals={setGoals} onAdd={() => setModal("goal")} />}
       </div>
 
-      {modal==="task" && <TaskModal key={editTask?.id || "new"} onClose={() => { setModal(null); setEditTask(null); }} onSave={t => { setTasks(p => resolveOverlaps(editTask ? p.map(x => x.id===editTask.id ? t : x) : [...p, t])); setModal(null); setEditTask(null); }} colorOptions={COLORS} initial={editTask} allTasks={tasks} goals={goals} />}
+      {/* Add new task */}
+      {modal==="task" && <TaskModal key="new-task" onClose={() => { setModal(null); setEditTask(null); }} onSave={t => { setTasks(p => resolveOverlaps([...p, t])); setModal(null); setEditTask(null); }} colorOptions={COLORS} initial={null} allTasks={tasks} goals={goals} />}
+
+      {/* Edit/Delete choice modals */}
+      {modal==="task-choice" && editTask && (
+        <RecurrenceChoiceModal
+          mode="edit"
+          task={editTask.task}
+          dateKey={editTask.dateKey}
+          onClose={() => { setModal(null); setEditTask(null); }}
+          onThisDay={() => {
+            // Open TaskModal pre-filled with day-specific values
+            setModal("task-edit-day");
+          }}
+          onAllDays={() => {
+            setModal("task-edit-all");
+          }}
+        />
+      )}
+      {modal==="task-edit-day" && editTask && (
+        <TaskModal
+          key={`edit-day-${editTask.task.id}-${editTask.dateKey}`}
+          mode="day"
+          dateKey={editTask.dateKey}
+          onClose={() => { setModal(null); setEditTask(null); }}
+          onSave={override => {
+            // Store override for this specific date only
+            setTasks(p => p.map(t => t.id === editTask.task.id
+              ? { ...t, overrides: { ...(t.overrides||{}), [editTask.dateKey]: override } }
+              : t
+            ));
+            setModal(null); setEditTask(null);
+          }}
+          colorOptions={COLORS}
+          initial={getEffectiveTask(editTask.task, editTask.dateKey)}
+          allTasks={tasks}
+          goals={goals}
+        />
+      )}
+      {modal==="task-edit-all" && editTask && (
+        <TaskModal
+          key={`edit-all-${editTask.task.id}`}
+          mode="all"
+          onClose={() => { setModal(null); setEditTask(null); }}
+          onSave={t => {
+            setTasks(p => resolveOverlaps(p.map(x => x.id===editTask.task.id ? t : x)));
+            setModal(null); setEditTask(null);
+          }}
+          colorOptions={COLORS}
+          initial={editTask.task}
+          allTasks={tasks}
+          goals={goals}
+        />
+      )}
+      {modal==="delete-choice" && editTask && (
+        <RecurrenceChoiceModal
+          mode="delete"
+          task={tasks.find(t => t.id === editTask.taskId) || {}}
+          dateKey={editTask.dateKey}
+          onClose={() => { setModal(null); setEditTask(null); }}
+          onThisDay={() => {
+            // Add this date to exceptions — hides task only on this day
+            setTasks(p => p.map(t => t.id === editTask.taskId
+              ? { ...t, exceptions: [...(t.exceptions||[]), editTask.dateKey] }
+              : t
+            ));
+            setModal(null); setEditTask(null);
+          }}
+          onAllDays={() => {
+            // Remove task entirely
+            setTasks(p => p.filter(t => t.id !== editTask.taskId));
+            setModal(null); setEditTask(null);
+          }}
+        />
+      )}
+
       {modal==="goal" && <GoalModal onClose={() => setModal(null)} onSave={g => { setGoals(p => [...p, g]); setModal(null); }} />}
     </div>
   );
@@ -1463,10 +1549,13 @@ function TodayView({ tasks, allTasks, viewLog, viewKey, todayKey, selectedDate, 
       {tasks.length === 0 && <div style={{ textAlign:"center", padding:"50px 20px", color:"var(--text4)", fontSize:13 }}>No tasks scheduled for this day.</div>}
 
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-        {tasks.map(task => {
+        {tasks.map(rawTask => {
+          const task = getEffectiveTask(rawTask, viewKey); // apply day-specific overrides
           const done = !!viewLog[task.id];
           const tMins = task.startTime ? parseInt(task.startTime)*60 + parseInt(task.startTime.split(":")[1]) : null;
           const isActive = isToday && tMins!==null && nowMins>=tMins && nowMins<tMins+task.duration;
+          const hasOverride = !!(rawTask.overrides?.[viewKey]);
+          const hasException = rawTask.exceptions?.length > 0;
           return (
             <div key={task.id} className="task-row"
               style={{ background:done?"#0c0c1c":"#0e0e1d", border:`1px solid ${isActive&&!done?task.color+"70":done?task.color+"28":"#181830"}`, borderRadius:10, padding:"11px 12px", cursor:"pointer", position:"relative", overflow:"hidden" }}
@@ -1478,12 +1567,14 @@ function TodayView({ tasks, allTasks, viewLog, viewKey, todayKey, selectedDate, 
                 <div style={{ width:22, height:22, borderRadius:6, border:`2px solid ${done?task.color:"var(--text3)"}`, background:done?task.color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:"var(--text1)" }}>{done && <Icon name="check" size={11} />}</div>
                 <div style={{ width:3, height:26, background:task.color, borderRadius:2, flexShrink:0, opacity:done?0.35:1 }} />
                 <div style={{ flex:1, minWidth:0, fontSize:14, color:done?"#a0a0bc":"#e8e6f0", textDecoration:done?"line-through":"none", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                  {task.name}{isActive && !done && <span className="now-pill">NOW</span>}
+                  {task.name}
+                  {isActive && !done && <span className="now-pill">NOW</span>}
+                  {hasOverride && <span style={{ marginLeft:6, fontSize:9, color:"#3b82f6", background:"#3b82f618", border:"1px solid #3b82f633", borderRadius:3, padding:"1px 5px", letterSpacing:"0.5px" }}>EDITED</span>}
                 </div>
                 <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
                   <span style={{ background:"var(--bg3)", padding:"2px 7px", borderRadius:4, fontSize:10, color:"var(--text2)", whiteSpace:"nowrap" }}>{fmtMins(task.duration)}</span>
-                  <button onClick={e => { e.stopPropagation(); onEditTask(task); }} style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:6, cursor:"pointer", color:"var(--text2)", padding:"4px 6px", display:"flex", alignItems:"center" }} onMouseEnter={e=>e.currentTarget.style.color="#f97316"} onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}><Icon name="edit" size={12} /></button>
-                  <button onClick={e => { e.stopPropagation(); onDeleteTask(task.id); }} style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:6, cursor:"pointer", color:"var(--text2)", padding:"4px 6px", display:"flex", alignItems:"center" }} onMouseEnter={e=>e.currentTarget.style.color="#f43f5e"} onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}><Icon name="trash" size={12} /></button>
+                  <button onClick={e => { e.stopPropagation(); onEditTask(task, viewKey); }} style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:6, cursor:"pointer", color:"var(--text2)", padding:"4px 6px", display:"flex", alignItems:"center" }} onMouseEnter={e=>e.currentTarget.style.color="#f97316"} onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}><Icon name="edit" size={12} /></button>
+                  <button onClick={e => { e.stopPropagation(); onDeleteTask(task.id, viewKey); }} style={{ background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:6, cursor:"pointer", color:"var(--text2)", padding:"4px 6px", display:"flex", alignItems:"center" }} onMouseEnter={e=>e.currentTarget.style.color="#f43f5e"} onMouseLeave={e=>e.currentTarget.style.color="#a0a0bc"}><Icon name="trash" size={12} /></button>
                 </div>
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:6, paddingLeft:32, flexWrap:"wrap" }}>
@@ -1885,8 +1976,112 @@ function DayTimeline({ tasks, nowMins }) {
   );
 }
 
+
+// ─── Recurrence Choice Modal ──────────────────────────────────────────────────
+// Shows when user taps Edit or Delete on a recurring task
+// Lets them choose: this day only, or all days
+function RecurrenceChoiceModal({ mode, task, dateKey, onClose, onThisDay, onAllDays }) {
+  const isDelete = mode === "delete";
+  const dateLabel = new Date(dateKey + "T12:00:00").toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long" });
+  const isRecurring = task.repeat && task.repeat.type !== "none";
+
+  // If not a recurring task, skip the choice and go straight to the action
+  React.useEffect(() => {
+    if (!isRecurring) {
+      // Non-recurring: always act on "all" (the only instance)
+      onAllDays();
+    }
+  }, []);
+
+  if (!isRecurring) return null;
+
+  const accentColor = isDelete ? "#f43f5e" : "#f97316";
+  const accentBg    = isDelete ? "#f43f5e18" : "#f9731618";
+  const accentBorder= isDelete ? "#f43f5e44" : "#f9731644";
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:600, padding:"0 0 0 0" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ width:"100%", maxWidth:480, background:"var(--bg2)", borderRadius:"20px 20px 0 0", padding:"24px 20px 44px", border:"1px solid var(--border)" }}>
+
+        {/* Handle bar */}
+        <div style={{ width:40, height:4, background:"var(--border2)", borderRadius:2, margin:"0 auto 20px" }} />
+
+        {/* Task name badge */}
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
+          <div style={{ width:12, height:12, borderRadius:3, background:task.color || "#f97316", flexShrink:0 }} />
+          <div style={{ fontSize:15, fontWeight:600, color:"var(--text1)", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{task.name}</div>
+        </div>
+
+        {/* Question */}
+        <div style={{ fontSize:13, color:"var(--text2)", marginBottom:20, lineHeight:1.6 }}>
+          {isDelete
+            ? "This is a recurring task. Do you want to delete just this one occurrence, or remove it from all days?"
+            : "This is a recurring task. Do you want to edit just this one day, or change it for all days?"}
+        </div>
+
+        {/* Date label */}
+        <div style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:8, padding:"8px 14px", marginBottom:20, fontSize:12, color:"var(--text2)", display:"flex", alignItems:"center", gap:8 }}>
+          <Icon name="calendar" size={13} />
+          <span>{dateLabel}</span>
+        </div>
+
+        {/* Option 1: This day only */}
+        <button onClick={onThisDay}
+          style={{ width:"100%", background:accentBg, border:`1px solid ${accentBorder}`, borderRadius:12, padding:"16px", cursor:"pointer", marginBottom:10, textAlign:"left", fontFamily:"inherit", transition:"all 0.15s" }}
+          onMouseEnter={e => e.currentTarget.style.opacity="0.85"}
+          onMouseLeave={e => e.currentTarget.style.opacity="1"}>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <div style={{ width:36, height:36, borderRadius:10, background:accentColor, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <Icon name="calendar" size={16} />
+            </div>
+            <div>
+              <div style={{ fontSize:14, fontWeight:600, color:accentColor, marginBottom:3 }}>
+                {isDelete ? "Delete this day only" : "Edit this day only"}
+              </div>
+              <div style={{ fontSize:11, color:"var(--text3)", lineHeight:1.5 }}>
+                {isDelete
+                  ? `Remove from ${dateLabel} only. Other days are unaffected.`
+                  : `Changes apply only to ${dateLabel}. Other days stay the same.`}
+              </div>
+            </div>
+          </div>
+        </button>
+
+        {/* Option 2: All days */}
+        <button onClick={onAllDays}
+          style={{ width:"100%", background:"var(--bg3)", border:"1px solid var(--border2)", borderRadius:12, padding:"16px", cursor:"pointer", marginBottom:16, textAlign:"left", fontFamily:"inherit", transition:"all 0.15s" }}
+          onMouseEnter={e => e.currentTarget.style.background="var(--border)"}
+          onMouseLeave={e => e.currentTarget.style.background="var(--bg3)"}>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <div style={{ width:36, height:36, borderRadius:10, background:"var(--border2)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <Icon name="repeat" size={16} />
+            </div>
+            <div>
+              <div style={{ fontSize:14, fontWeight:600, color:"var(--text1)", marginBottom:3 }}>
+                {isDelete ? "Delete all occurrences" : "Edit all days"}
+              </div>
+              <div style={{ fontSize:11, color:"var(--text3)", lineHeight:1.5 }}>
+                {isDelete
+                  ? "Remove this task completely from every day."
+                  : "Changes apply to this task on every scheduled day."}
+              </div>
+            </div>
+          </div>
+        </button>
+
+        {/* Cancel */}
+        <button onClick={onClose}
+          style={{ width:"100%", background:"none", border:"1px solid var(--border2)", borderRadius:12, padding:"13px", cursor:"pointer", color:"var(--text3)", fontSize:13, fontFamily:"inherit", fontWeight:500 }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Task Modal ───────────────────────────────────────────────────────────────
-function TaskModal({ onClose, onSave, colorOptions, initial, allTasks, goals }) {
+function TaskModal({ onClose, onSave, colorOptions, initial, allTasks, goals, mode, dateKey }) {
   const [name, setName]             = useState(initial?.name || "");
   const [duration, setDuration]     = useState(initial?.duration || 30);
   const [startTime, setStartTime]   = useState(initial?.startTime || "08:00");
@@ -1916,9 +2111,34 @@ function TaskModal({ onClose, onSave, colorOptions, initial, allTasks, goals }) 
   const linkedMilestone = linkedGoalId ? { goalId:linkedGoalId, milestoneId:linkedMsId||null } : null;
   const save = () => { if (!name.trim()) return; onSave({ id:initial?.id||"t"+Date.now(), name:name.trim(), duration:Number(duration), startTime, category, color, repeat, linkedMilestone }); };
 
+  const isDayEdit = mode === "day";
+  const isNewTask = !initial && !mode;
+  const modalTitle = isDayEdit
+    ? "Edit this day"
+    : initial ? "Edit task (all days)" : "New task";
+
   return (
-    <Modal onClose={onClose} title={initial ? "Edit Task" : "New Task"}>
+    <Modal onClose={onClose} title={modalTitle}>
       <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        {/* Day-edit banner */}
+        {isDayEdit && dateKey && (
+          <div style={{ background:"#3b82f618", border:"1px solid #3b82f633", borderRadius:9, padding:"10px 13px", display:"flex", alignItems:"center", gap:8 }}>
+            <Icon name="calendar" size={13} />
+            <div>
+              <div style={{ fontSize:12, color:"#3b82f6", fontWeight:600 }}>Editing one day only</div>
+              <div style={{ fontSize:11, color:"var(--text3)", marginTop:2 }}>
+                {new Date(dateKey+"T12:00:00").toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}
+              </div>
+            </div>
+          </div>
+        )}
+        {/* All-days edit banner */}
+        {mode === "all" && (
+          <div style={{ background:"#f9731618", border:"1px solid #f9731633", borderRadius:9, padding:"10px 13px", display:"flex", alignItems:"center", gap:8 }}>
+            <Icon name="repeat" size={13} />
+            <div style={{ fontSize:12, color:"#f97316", fontWeight:600 }}>Changes apply to all scheduled days</div>
+          </div>
+        )}
         <Field label="Task Name"><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Morning Run" style={inputStyle} autoFocus /></Field>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
           <Field label="Start Time"><input type="time" value={startTime} onChange={e=>setStartTime(e.target.value)} style={inputStyle} /></Field>
@@ -1934,13 +2154,13 @@ function TaskModal({ onClose, onSave, colorOptions, initial, allTasks, goals }) 
             {colorOptions.map(c=><div key={c} onClick={()=>setColor(c)} style={{ width:28, height:28, borderRadius:6, background:c, cursor:"pointer", border:color===c?"3px solid #fff":"3px solid transparent" }} />)}
           </div>
         </Field>
-        <Field label="Repeat">
+        {!isDayEdit && <Field label="Repeat">
           <div style={{ display:"flex", gap:6, marginBottom:10, flexWrap:"wrap" }}>
             {[["daily","Every Day"],["weekdays","Weekdays"],["monthDates","Month Dates"]].map(([v,l])=><button key={v} onClick={()=>setRepType(v)} className={`chip${repType===v?" on":""}`}>{l}</button>)}
           </div>
           {repType==="weekdays" && <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>{WEEKDAYS.map((d,i) => <button key={i} onClick={()=>toggleDay(i)} className={`chip${repDays.includes(i)?" on":""}`}>{d}</button>)}</div>}
           {repType==="monthDates" && <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>{MONTH_DATES.map(d => <button key={d} onClick={()=>toggleDate(d)} className={`dchip${repDates.includes(d)?" on":""}`}>{d}</button>)}</div>}
-        </Field>
+        </Field>}
         <div style={{ borderTop:"1px solid var(--border)", paddingTop:14 }}>
           <button onClick={() => { setShowLink(v=>!v); if(showLink){ setLinkedGoalId(""); setLinkedMsId(""); } }} style={{ display:"flex", alignItems:"center", gap:7, background:"none", border:"none", cursor:"pointer", color:showLink?"#f97316":"#b0b0c8", fontFamily:"inherit", fontSize:12, padding:0, width:"100%" }}>
             <Icon name="link" size={13} />{showLink ? "Remove Goal Link" : "Link to Goal Milestone"}<span style={{ marginLeft:"auto", fontSize:14, opacity:.5 }}>{showLink?"×":"+"}</span>
